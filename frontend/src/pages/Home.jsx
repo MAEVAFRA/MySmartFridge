@@ -4,14 +4,9 @@ import { Refrigerator, Snowflake, Archive, AlertTriangle, Plus } from 'lucide-re
 import api from '../services/api'
 
 function Home() {
-  const [stats, setStats] = useState({
-    total: 0,
-    fridge: 0,
-    freezer: 0,
-    pantry: 0,
-    expiringSoon: 0,
-  })
+  const [locations, setLocations] = useState([])
   const [expiringProducts, setExpiringProducts] = useState([])
+  const [totalProducts, setTotalProducts] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -20,21 +15,23 @@ function Home() {
 
   const fetchData = async () => {
     try {
-      const [productsRes, expiringRes] = await Promise.all([
+      const [productsRes, expiringRes, locationsRes] = await Promise.all([
         api.get('/products'),
         api.get('/products/expiring?days=7'),
+        api.get('/locations'),
       ])
 
       const products = productsRes.data
-      
-      setStats({
-        total: products.length,
-        fridge: products.filter(p => p.location?.name === 'Frigo').length,
-        freezer: products.filter(p => p.location?.name === 'Congélateur').length,
-        pantry: products.filter(p => p.location?.name === 'Placard').length,
-        expiringSoon: expiringRes.data.length,
-      })
+      const locs = locationsRes.data
 
+      // Compter les produits par emplacement dynamiquement
+      const locsWithCount = locs.map((loc) => ({
+        ...loc,
+        count: products.filter((p) => p.location_id === loc.id).length,
+      }))
+
+      setLocations(locsWithCount)
+      setTotalProducts(products.length)
       setExpiringProducts(expiringRes.data.slice(0, 5))
     } catch (error) {
       console.error('Erreur chargement données:', error)
@@ -43,11 +40,23 @@ function Home() {
     }
   }
 
-  const locations = [
-    { name: 'Frigo', count: stats.fridge, icon: Refrigerator, color: 'bg-blue-500' },
-    { name: 'Congélateur', count: stats.freezer, icon: Snowflake, color: 'bg-cyan-500' },
-    { name: 'Placard', count: stats.pantry, icon: Archive, color: 'bg-amber-500' },
-  ]
+  const getLocationIcon = (type) => {
+    if (type === 'fridge')  return Refrigerator
+    if (type === 'freezer') return Snowflake
+    return Archive
+  }
+
+  const getLocationColor = (type) => {
+    if (type === 'fridge')  return 'bg-blue-500'
+    if (type === 'freezer') return 'bg-cyan-500'
+    return 'bg-amber-500'
+  }
+
+  const getDaysLeft = (date) => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return Math.ceil((new Date(date) - today) / (1000 * 60 * 60 * 24))
+  }
 
   if (loading) {
     return (
@@ -71,68 +80,70 @@ function Home() {
       </div>
 
       {/* Stats par emplacement */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {locations.map(({ name, count, icon: Icon, color }) => (
-          <div key={name} className="bg-white rounded-xl shadow p-6">
-            <div className="flex items-center gap-4">
-              <div className={`${color} p-3 rounded-lg`}>
-                <Icon className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">{name}</p>
-                <p className="text-2xl font-bold text-gray-900">{count} produits</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {locations.map((loc) => {
+          const Icon = getLocationIcon(loc.type)
+          const color = getLocationColor(loc.type)
+          return (
+            <div key={loc.id} className="bg-white rounded-xl shadow p-6">
+              <div className="flex items-center gap-4">
+                <div className={`${color} p-3 rounded-lg`}>
+                  <Icon className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">{loc.name}</p>
+                  <p className="text-2xl font-bold text-gray-900">{loc.count} produits</p>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Alerte péremptions */}
-      {stats.expiringSoon > 0 && (
+      {expiringProducts.length > 0 && (
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-6">
           <div className="flex items-center gap-3 mb-4">
             <AlertTriangle className="h-6 w-6 text-orange-500" />
             <h2 className="text-lg font-semibold text-orange-800">
-              {stats.expiringSoon} produit(s) bientôt périmé(s)
+              {expiringProducts.length} produit(s) bientôt périmé(s)
             </h2>
           </div>
-          
+
           <div className="space-y-2">
-            {expiringProducts.map((product) => (
-              <div
-                key={product.id}
-                className="flex justify-between items-center bg-white p-3 rounded-lg"
-              >
-                <div>
-                  <p className="font-medium text-gray-900">{product.name}</p>
-                  <p className="text-sm text-gray-500">{product.location?.name}</p>
+            {expiringProducts.map((product) => {
+              const daysLeft = getDaysLeft(product.expires_at)
+              return (
+                <div key={product.id} className="flex justify-between items-center bg-white p-3 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900">{product.name}</p>
+                    <p className="text-sm text-gray-500">{product.location?.name}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm font-medium ${daysLeft <= 1 ? 'text-red-600' : daysLeft <= 3 ? 'text-orange-600' : 'text-yellow-600'}`}>
+                      {daysLeft === 0 ? "Expire aujourd'hui !" : daysLeft === 1 ? 'Demain' : `Dans ${daysLeft} jours`}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(product.expires_at).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-sm text-orange-600 font-medium">
-                  {new Date(product.expiryDate).toLocaleDateString('fr-FR')}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
-          <Link
-            to="/expiring"
-            className="inline-block mt-4 text-orange-600 hover:text-orange-700 font-medium"
-          >
+          <Link to="/expiring" className="inline-block mt-4 text-orange-600 hover:text-orange-700 font-medium">
             Voir tous les produits →
           </Link>
         </div>
       )}
 
       {/* Message si vide */}
-      {stats.total === 0 && (
+      {totalProducts === 0 && (
         <div className="bg-white rounded-xl shadow p-12 text-center">
           <Refrigerator className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            Votre frigo est vide !
-          </h3>
-          <p className="text-gray-500 mb-4">
-            Commencez par ajouter vos premiers produits
-          </p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Votre frigo est vide !</h3>
+          <p className="text-gray-500 mb-4">Commencez par ajouter vos premiers produits</p>
           <Link
             to="/products"
             className="inline-flex items-center gap-2 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors"

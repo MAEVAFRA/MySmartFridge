@@ -16,9 +16,9 @@ function Products() {
     name: '',
     quantity: 1,
     unit: 'unité',
-    expiryDate: '',
-    locationId: '',
-    categoryId: '',
+    expires_at: '',
+    location_id: '',
+    category_id: '',
     notes: '',
   })
 
@@ -75,9 +75,9 @@ function Products() {
         name: product.name,
         quantity: product.quantity,
         unit: product.unit || 'unité',
-        expiryDate: product.expiryDate || '',
-        locationId: product.locationId,
-        categoryId: product.categoryId || '',
+        expires_at: product.expires_at ? product.expires_at.slice(0, 10) : '',
+        location_id: product.location_id || '',
+        category_id: product.category_id || '',
         notes: product.notes || '',
       })
     } else {
@@ -86,9 +86,9 @@ function Products() {
         name: '',
         quantity: 1,
         unit: 'unité',
-        expiryDate: '',
-        locationId: locations[0]?.id || '',
-        categoryId: '',
+        expires_at: '',
+        location_id: locations[0]?.id || '',
+        category_id: '',
         notes: '',
       })
     }
@@ -100,9 +100,18 @@ function Products() {
     setEditingProduct(null)
   }
 
+  const getExpiryColor = (expires_at) => {
+    if (!expires_at) return ''
+    const daysLeft = Math.ceil((new Date(expires_at) - new Date()) / (1000 * 60 * 60 * 24))
+    if (daysLeft <= 1)  return 'text-red-600 font-semibold'
+    if (daysLeft <= 3)  return 'text-orange-500 font-semibold'
+    if (daysLeft <= 7)  return 'text-yellow-600'
+    return 'text-gray-600'
+  }
+
   const filteredProducts = products.filter((p) => {
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase())
-    const matchLocation = !filterLocation || p.locationId === parseInt(filterLocation)
+    const matchSearch   = p.name.toLowerCase().includes(search.toLowerCase())
+    const matchLocation = !filterLocation || p.location_id === parseInt(filterLocation)
     return matchSearch && matchLocation
   })
 
@@ -146,7 +155,7 @@ function Products() {
         >
           <option value="">Tous les emplacements</option>
           {locations.map((loc) => (
-            <option key={loc.id} value={loc.id}>{loc.name}</option>
+            <option key={loc.id} value={loc.id}>{loc.icon} {loc.name}</option>
           ))}
         </select>
       </div>
@@ -154,9 +163,7 @@ function Products() {
       {/* Liste des produits */}
       <div className="bg-white rounded-xl shadow overflow-hidden">
         {filteredProducts.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            Aucun produit trouvé
-          </div>
+          <div className="p-8 text-center text-gray-500">Aucun produit trouvé</div>
         ) : (
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -181,26 +188,20 @@ function Products() {
                     {product.quantity} {product.unit}
                   </td>
                   <td className="px-6 py-4">
-                    <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                      {product.location?.name}
+                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                      {product.location?.icon} {product.location?.name}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-gray-600">
-                    {product.expiryDate
-                      ? new Date(product.expiryDate).toLocaleDateString('fr-FR')
-                      : '-'}
+                  <td className={`px-6 py-4 ${getExpiryColor(product.expires_at)}`}>
+                    {product.expires_at
+                      ? new Date(product.expires_at).toLocaleDateString('fr-FR')
+                      : <span className="text-gray-400">—</span>}
                   </td>
                   <td className="px-6 py-4 text-right space-x-2">
-                    <button
-                      onClick={() => openModal(product)}
-                      className="text-gray-400 hover:text-primary-600"
-                    >
+                    <button onClick={() => openModal(product)} className="text-gray-400 hover:text-primary-600">
                       <Edit2 className="h-5 w-5" />
                     </button>
-                    <button
-                      onClick={() => handleDelete(product.id)}
-                      className="text-gray-400 hover:text-red-600"
-                    >
+                    <button onClick={() => handleDelete(product.id)} className="text-gray-400 hover:text-red-600">
                       <Trash2 className="h-5 w-5" />
                     </button>
                   </td>
@@ -218,7 +219,7 @@ function Products() {
             <h2 className="text-xl font-bold text-gray-900 mb-4">
               {editingProduct ? 'Modifier le produit' : 'Ajouter un produit'}
             </h2>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Nom *</label>
@@ -255,6 +256,9 @@ function Products() {
                     <option value="g">g</option>
                     <option value="L">L</option>
                     <option value="mL">mL</option>
+                    <option value="c.à.s">c.à.s</option>
+                    <option value="tête">tête</option>
+                    <option value="botte">botte</option>
                   </select>
                 </div>
               </div>
@@ -263,13 +267,13 @@ function Products() {
                 <label className="block text-sm font-medium text-gray-700">Emplacement *</label>
                 <select
                   required
-                  value={formData.locationId}
-                  onChange={(e) => setFormData({ ...formData, locationId: e.target.value })}
+                  value={formData.location_id}
+                  onChange={(e) => setFormData({ ...formData, location_id: e.target.value })}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 >
                   <option value="">Sélectionner...</option>
                   {locations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>{loc.name}</option>
+                    <option key={loc.id} value={loc.id}>{loc.icon} {loc.name}</option>
                   ))}
                 </select>
               </div>
@@ -277,13 +281,13 @@ function Products() {
               <div>
                 <label className="block text-sm font-medium text-gray-700">Catégorie</label>
                 <select
-                  value={formData.categoryId}
-                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                  value={formData.category_id}
+                  onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 >
                   <option value="">Aucune</option>
                   {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
                   ))}
                 </select>
               </div>
@@ -292,8 +296,18 @@ function Products() {
                 <label className="block text-sm font-medium text-gray-700">Date de péremption</label>
                 <input
                   type="date"
-                  value={formData.expiryDate}
-                  onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+                  value={formData.expires_at}
+                  onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Notes</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  rows={2}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>

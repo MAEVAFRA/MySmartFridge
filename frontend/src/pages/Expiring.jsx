@@ -12,6 +12,7 @@ function Expiring() {
   }, [days])
 
   const fetchProducts = async () => {
+    setLoading(true)
     try {
       const response = await api.get(`/products/expiring?days=${days}`)
       setProducts(response.data)
@@ -25,9 +26,7 @@ function Expiring() {
   const getDaysUntilExpiry = (date) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const expiry = new Date(date)
-    const diff = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24))
-    return diff
+    return Math.ceil((new Date(date) - today) / (1000 * 60 * 60 * 24))
   }
 
   const getExpiryColor = (daysLeft) => {
@@ -37,7 +36,7 @@ function Expiring() {
   }
 
   const getExpiryText = (daysLeft) => {
-    if (daysLeft === 0) return 'Expire aujourd\'hui !'
+    if (daysLeft <= 0) return "Expiré !"
     if (daysLeft === 1) return 'Expire demain'
     return `Expire dans ${daysLeft} jours`
   }
@@ -54,7 +53,7 @@ function Expiring() {
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Produits bientôt périmés</h1>
-        
+
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-600">Afficher les</span>
           <select
@@ -73,9 +72,7 @@ function Expiring() {
       {products.length === 0 ? (
         <div className="bg-green-50 border border-green-200 rounded-xl p-8 text-center">
           <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-green-800 mb-2">
-            Tout est bon ! 🎉
-          </h3>
+          <h3 className="text-lg font-medium text-green-800 mb-2">Tout est bon ! 🎉</h3>
           <p className="text-green-600">
             Aucun produit n'expire dans les {days} prochains jours
           </p>
@@ -83,7 +80,7 @@ function Expiring() {
       ) : (
         <div className="space-y-4">
           {products.map((product) => {
-            const daysLeft = getDaysUntilExpiry(product.expiryDate)
+            const daysLeft = getDaysUntilExpiry(product.expires_at)
             return (
               <div
                 key={product.id}
@@ -95,14 +92,16 @@ function Expiring() {
                     <div>
                       <h3 className="font-semibold">{product.name}</h3>
                       <p className="text-sm opacity-75">
-                        {product.quantity} {product.unit} • {product.location?.name}
+                        {product.quantity} {product.unit}
+                        {product.location && ` • ${product.location.icon} ${product.location.name}`}
+                        {product.category && ` • ${product.category.name}`}
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0 ml-4">
                     <p className="font-medium">{getExpiryText(daysLeft)}</p>
                     <p className="text-sm opacity-75">
-                      {new Date(product.expiryDate).toLocaleDateString('fr-FR')}
+                      {new Date(product.expires_at).toLocaleDateString('fr-FR')}
                     </p>
                   </div>
                 </div>
