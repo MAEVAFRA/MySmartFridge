@@ -1,26 +1,31 @@
 const { Op } = require('sequelize');
-const { Product, Location, Category } = require('../models');
+const { Product, Location, ProductCategory, HouseholdMember } = require('../models');
+
+// Récupère le household_id de l'utilisateur connecté
+const getHouseholdId = async (userId) => {
+  const member = await HouseholdMember.findOne({ where: { user_id: userId } });
+  if (!member) throw new Error('Aucun foyer trouvé pour cet utilisateur');
+  return member.household_id;
+};
 
 // GET /api/products
 exports.getAll = async (req, res) => {
   try {
-    const { locationId, categoryId, search } = req.query;
-    
-    const where = { userId: req.user.id };
-    
-    if (locationId) where.locationId = locationId;
-    if (categoryId) where.categoryId = categoryId;
-    if (search) {
-      where.name = { [Op.iLike]: `%${search}%` };
-    }
+    const household_id = await getHouseholdId(req.user.id);
+    const { location_id, category_id, search } = req.query;
+
+    const where = { household_id, deleted_at: null };
+    if (location_id)  where.location_id  = location_id;
+    if (category_id)  where.category_id  = category_id;
+    if (search)       where.name         = { [Op.iLike]: `%${search}%` };
 
     const products = await Product.findAll({
       where,
       include: [
-        { model: Location, as: 'location' },
-        { model: Category, as: 'category' },
+        { model: Location,        as: 'location' },
+        { model: ProductCategory, as: 'category' },
       ],
-      order: [['expiryDate', 'ASC NULLS LAST']],
+      order: [['expires_at', 'ASC NULLS LAST']],
     });
 
     res.json(products);
@@ -33,24 +38,26 @@ exports.getAll = async (req, res) => {
 // GET /api/products/expiring
 exports.getExpiring = async (req, res) => {
   try {
+    const household_id = await getHouseholdId(req.user.id);
     const { days = 7 } = req.query;
-    
+
     const limitDate = new Date();
     limitDate.setDate(limitDate.getDate() + parseInt(days));
 
     const products = await Product.findAll({
       where: {
-        userId: req.user.id,
-        expiryDate: {
+        household_id,
+        deleted_at: null,
+        expires_at: {
           [Op.lte]: limitDate,
           [Op.gte]: new Date(),
         },
       },
       include: [
-        { model: Location, as: 'location' },
-        { model: Category, as: 'category' },
+        { model: Location,        as: 'location' },
+        { model: ProductCategory, as: 'category' },
       ],
-      order: [['expiryDate', 'ASC']],
+      order: [['expires_at', 'ASC']],
     });
 
     res.json(products);
@@ -63,18 +70,17 @@ exports.getExpiring = async (req, res) => {
 // GET /api/products/:id
 exports.getOne = async (req, res) => {
   try {
+    const household_id = await getHouseholdId(req.user.id);
+
     const product = await Product.findOne({
-      where: { id: req.params.id, userId: req.user.id },
+      where: { id: req.params.id, household_id, deleted_at: null },
       include: [
-        { model: Location, as: 'location' },
-        { model: Category, as: 'category' },
+        { model: Location,        as: 'location' },
+        { model: ProductCategory, as: 'category' },
       ],
     });
 
-    if (!product) {
-      return res.status(404).json({ message: 'Produit non trouvé' });
-    }
-
+    if (!product) return res.status(404).json({ message: 'Produit non trouvé' });
     res.json(product);
   } catch (error) {
     console.error('Erreur getOne product:', error);
@@ -85,28 +91,25 @@ exports.getOne = async (req, res) => {
 // POST /api/products
 exports.create = async (req, res) => {
   try {
-    const { name, quantity, unit, expiryDate, barcode, notes, locationId, categoryId } = req.body;
+    const household_id = await getHouseholdId(req.user.id);
+    const { name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price } = req.body;
 
     const product = await Product.create({
-      name,
-      quantity,
-      unit,
-      expiryDate,
-      barcode,
-      notes,
-      locationId,
-      categoryId,
-      userId: req.user.id,
+      name, quantity, unit, expires_at, barcode, notes,
+      location_id, category_id, brand, price,
+      household_id,
+      added_by: req.user.id,
+      expiry_source: 'manual',
     });
 
-    const productWithRelations = await Product.findByPk(product.id, {
+    const full = await Product.findByPk(product.id, {
       include: [
-        { model: Location, as: 'location' },
-        { model: Category, as: 'category' },
+        { model: Location,        as: 'location' },
+        { model: ProductCategory, as: 'category' },
       ],
     });
 
-    res.status(201).json(productWithRelations);
+    res.status(201).json(full);
   } catch (error) {
     console.error('Erreur create product:', error);
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
@@ -116,35 +119,25 @@ exports.create = async (req, res) => {
 // PUT /api/products/:id
 exports.update = async (req, res) => {
   try {
+    const household_id = await getHouseholdId(req.user.id);
+
     const product = await Product.findOne({
-      where: { id: req.params.id, userId: req.user.id },
+      where: { id: req.params.id, household_id, deleted_at: null },
     });
 
-    if (!product) {
-      return res.status(404).json({ message: 'Produit non trouvé' });
-    }
+    if (!product) return res.status(404).json({ message: 'Produit non trouvé' });
 
-    const { name, quantity, unit, expiryDate, barcode, notes, locationId, categoryId } = req.body;
+    const { name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price } = req.body;
+    await product.update({ name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price });
 
-    await product.update({
-      name,
-      quantity,
-      unit,
-      expiryDate,
-      barcode,
-      notes,
-      locationId,
-      categoryId,
-    });
-
-    const updatedProduct = await Product.findByPk(product.id, {
+    const updated = await Product.findByPk(product.id, {
       include: [
-        { model: Location, as: 'location' },
-        { model: Category, as: 'category' },
+        { model: Location,        as: 'location' },
+        { model: ProductCategory, as: 'category' },
       ],
     });
 
-    res.json(updatedProduct);
+    res.json(updated);
   } catch (error) {
     console.error('Erreur update product:', error);
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
@@ -154,15 +147,16 @@ exports.update = async (req, res) => {
 // DELETE /api/products/:id
 exports.delete = async (req, res) => {
   try {
+    const household_id = await getHouseholdId(req.user.id);
+
     const product = await Product.findOne({
-      where: { id: req.params.id, userId: req.user.id },
+      where: { id: req.params.id, household_id, deleted_at: null },
     });
 
-    if (!product) {
-      return res.status(404).json({ message: 'Produit non trouvé' });
-    }
+    if (!product) return res.status(404).json({ message: 'Produit non trouvé' });
 
-    await product.destroy();
+    // Soft delete
+    await product.update({ deleted_at: new Date() });
 
     res.json({ message: 'Produit supprimé' });
   } catch (error) {

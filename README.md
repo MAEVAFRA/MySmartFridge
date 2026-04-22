@@ -1,102 +1,218 @@
 # 🧊 MySmartFridge
 
-Application de gestion intelligente de votre frigo, congélateur et placard.
+Application web de gestion intelligente des stocks alimentaires (frigo, congélateur, placard).
+
+---
 
 ## ✨ Fonctionnalités
 
-- **Gestion des stocks** — Ajoutez vos produits (frigo, congélateur, placard)
-- **Alertes péremption** — Notifications avant expiration
-- **Scan code-barres** — Ajout rapide de produits
-- **Suggestions recettes** — Basées sur vos stocks
-- **Liste de courses** — Générée automatiquement
+### Gestion des stocks
+- Ajout / modification / suppression de produits
+- Organisation par emplacement (frigo, congélateur, placard)
+- Catégorisation des produits
+
+### Suivi des péremptions
+- Enregistrement des dates d’expiration
+- Détection des produits bientôt périmés
+- Alertes / notifications
+
+### Ajout rapide
+- Scan code-barres
+- Saisie simplifiée
+
+### Assistance
+- Suggestions de recettes
+- Génération de liste de courses
+
+---
 
 ## 🛠️ Stack technique
 
-| Couche | Technologie |
-|--------|-------------|
-| **Backend** | Node.js, Express, Sequelize |
-| **Base de données** | PostgreSQL |
-| **Frontend** | React (PWA) |
-| **Notifications** | node-cron, Web Push API |
+| Couche           | Technologie                       |
+|------------------|-----------------------------------|
+| Backend          | Node.js, Express                  |
+| ORM              | Sequelize                         |
+| Base de données  | PostgreSQL                        |
+| Frontend         | React + Vite                      |
+| Auth             | JWT                               |
+| Jobs             | node-cron                         |
+| Conteneurisation | Docker, Docker Compose            |
+
+---
 
 ## 📁 Structure du projet
-
-```
 MySmartFridge/
 ├── backend/
-│   └── src/
-│       ├── config/         # Configuration BDD, env
-│       ├── controllers/    # Logique métier
-│       ├── middlewares/    # Auth, validation
-│       ├── models/         # Modèles Sequelize
-│       ├── routes/         # Routes API
-│       └── utils/          # Helpers
+│ ├── src/
+│ │ ├── config/
+│ │ ├── controllers/
+│ │ ├── middlewares/
+│ │ ├── models/
+│ │ ├── routes/
+│ │ ├── migrations/
+│ │ ├── seeders/
+│ │ └── index.js
+│ ├── .env
+│ ├── package.json
+│ └── Dockerfile
+│
 ├── frontend/
-│   └── src/
-│       ├── components/     # Composants réutilisables
-│       ├── pages/          # Pages de l'app
-│       ├── services/       # Appels API
-│       └── hooks/          # Custom hooks
-├── docs/                   # Documentation
-└── docker-compose.yml      # PostgreSQL local
-```
+│ ├── src/
+│ │ ├── components/
+│ │ ├── pages/
+│ │ ├── services/
+│ │ └── main.jsx
+│ ├── .env
+│ ├── package.json
+│ └── Dockerfile
+│
+├── docker-compose.yml
+└── README.md
 
-## 🚀 Installation
+## 🌐 Variables d’environnement frontend
+
+env:
+
+VITE_API_URL=http://localhost:3001/api
+
+## 🌐 Variables d’environnement backend
+
+env:
+
+DB_HOST=postgres
+DB_PORT=5432
+DB_NAME=mysmartfridge_dev
+DB_USER=mysmartfridge
+DB_PASSWORD=mysmartfridge_pwd
+
+### 📜 Commandes sequelize dans Docker 
+
+#### Créer / mettre à jour les tables :
+sudo docker compose exec backend npm run db:migrate
+
+#### Annuler une migration :
+sudo docker compose exec backend npm run db:migrate:undo
+
+#### Seeders : Insérer les données initiales :
+sudo docker compose exec backend npm run db:seed
+
+#### Reset complet de la base :
+sudo docker compose exec backend npm run db:reset
+
+### 📜 Scripts Sequelize
+"scripts": {
+  "db:migrate": "npx sequelize-cli db:migrate",
+  "db:migrate:undo": "npx sequelize-cli db:migrate:undo",
+  "db:seed": "npx sequelize-cli db:seed:all",
+  "db:reset": "npx sequelize-cli db:drop && npx sequelize-cli db:create && npm run db:migrate && npm run db:seed"
+}
+
+### 🧠 Rôle des scripts
+db:migrate → applique les migrations
+db:migrate:undo → annule la dernière migration
+db:seed → ajoute des données de test
+db:reset → remet la base à zéro
+
+## 🔗 API Endpoints
+
+| Méthode | Endpoint               | Description      |
+| ------- | ---------------------- | ---------------- |
+| GET     | /api/products          | Liste            |
+| POST    | /api/products          | Ajouter          |
+| PUT     | /api/products/:id      | Modifier         |
+| DELETE  | /api/products/:id      | Supprimer        |
+| GET     | /api/locations         | Emplacements     |
+| GET     | /api/categories        | Catégories       |
+| GET     | /api/products/expiring | Produits périmés |
+
+## 🗄️ Naviguer dans la BDD 
+
+### Entrer dans la BDD via docker :
+sudo docker compose exec postgres psql -U mysmartfridge -d mysmartfridge_dev
+
+### Commandes postgresql utiles :
+
+- \dt (Voir les tables)
+- SELECT * FROM products; (Afficher les données d'une table)
+
+### Les tables de la BDD :
+
+ Schema |           Name           | Type  |     Owner     
+--------+--------------------------+-------+---------------
+ public | audit_logs               | table | mysmartfridge
+ public | barcode_cache            | table | mysmartfridge
+ public | cooking_history          | table | mysmartfridge
+ public | cooking_history_items    | table | mysmartfridge
+ public | expense_category_budgets | table | mysmartfridge
+ public | expense_splits           | table | mysmartfridge
+ public | expenses                 | table | mysmartfridge
+ public | favorite_recipes         | table | mysmartfridge
+ public | household_invitations    | table | mysmartfridge
+ public | household_members        | table | mysmartfridge
+ public | households               | table | mysmartfridge
+ public | locations                | table | mysmartfridge
+ public | monthly_stats_snapshots  | table | mysmartfridge
+ public | notif_settings           | table | mysmartfridge
+ public | notifications            | table | mysmartfridge
+ public | password_resets          | table | mysmartfridge
+ public | product_categories       | table | mysmartfridge
+ public | product_consumption_logs | table | mysmartfridge
+ public | product_tags             | table | mysmartfridge
+ public | products                 | table | mysmartfridge
+ public | push_tokens              | table | mysmartfridge
+ public | receipt_scan_items       | table | mysmartfridge
+ public | receipt_scans            | table | mysmartfridge
+ public | recipe_ingredients       | table | mysmartfridge
+ public | recipe_steps             | table | mysmartfridge
+ public | recipes                  | table | mysmartfridge
+ public | shopping_items           | table | mysmartfridge
+ public | shopping_lists           | table | mysmartfridge
+ public | user_sessions            | table | mysmartfridge
+ public | users                    | table | mysmartfridge
+(30 rows)
+
+mysmartfridge_dev=# 
+
+## 🚀 Lancement avec Docker
 
 ### Prérequis
+- Docker
+- Docker Compose
 
-- Node.js >= 18
-- PostgreSQL (ou Docker)
-- npm ou yarn
+### Commandes docker utiles 
 
-### 1. Cloner le repo et création utilisateur, BDD, droits
+sudo docker compose up -d --build (Pour build)
+sudo docker compose down (Pour éteindre les conteneurs)
+sudo docker compose ps (Pour checker les conteneurs en cours de service)
+sudo docker compose exec backend sh (Pour lancer un service en particulier)
 
-```bash
-git clone https://github.com/ton-username/MySmartFridge.git
-cd MySmartFridge
-```
+### Lancer le projet
 
-### 2. Lancer la base de données
+sudo docker compose up -d --build (La première fois)
+docker compose up -d (Les fois suivantes)
 
-```bash
-docker-compose up -d
-```
+### Accès
 
-### 3. Configurer le backend
+Frontend : http://localhost:5173
+Backend : http://localhost:3001/api
+PostgreSQL : localhost:5433
 
-```bash
-cd backend
-cp .env.example .env
-npm install
-npm run db:migrate
-npm run dev
-```
+### Comptes de démonstration
 
-### 4. Configurer le frontend
+# Alice Dupont : 
+identifiant : alice@demo.com 
+mot de passe : password123
+rôle : owner
 
-```bash
-cd frontend
-cp .env.example .env
-npm install
-npm run dev
-```
+# Bob Martin :
+identifiant : bob@demo.com
+mot de passe : password123
+rôle : member
 
-## 📡 API Endpoints
+1 foyer partagé : Appart Lyon
+4 emplacements : Réfrigérateur, Congélateur, Placard, Placard épices
+15 produits répartis dans les emplacements
+4 recettes : Ratatouille, Omelette aux champignons, Pasta al pomodoro, Poulet rôti
+1 liste de courses avec 3 articles
+11 catégories système
 
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| GET | `/api/products` | Liste des produits |
-| POST | `/api/products` | Ajouter un produit |
-| PUT | `/api/products/:id` | Modifier un produit |
-| DELETE | `/api/products/:id` | Supprimer un produit |
-| GET | `/api/locations` | Liste des emplacements |
-| GET | `/api/categories` | Liste des catégories |
-| GET | `/api/products/expiring` | Produits bientôt périmés |
-
-## 👩‍💻 Auteur
-
-Maeva Hugo Omar — Projet école
-
-## 📄 Licence
-
-MIT

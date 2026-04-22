@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
@@ -9,10 +7,49 @@ services:
       POSTGRES_PASSWORD: mysmartfridge_pwd
       POSTGRES_DB: mysmartfridge_dev
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mysmartfridge -d mysmartfridge_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: mysmartfridge_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      NODE_ENV: development
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: mysmartfridge_dev
+      DB_USER: mysmartfridge
+      DB_PASSWORD: mysmartfridge_pwd
+      JWT_SECRET: your_super_secret_key_change_this
+      JWT_EXPIRES_IN: 7d
+      FRONTEND_URL: http://localhost:5173
+    restart: unless-stopped
+    command: sh -c "npm install && npm run start"
+
+  frontend:
+    build: ./frontend
+    container_name: mysmartfridge_frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3001/api
+    restart: unless-stopped
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
 
 volumes:
   postgres_data:

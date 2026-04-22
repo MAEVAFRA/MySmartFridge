@@ -1,10 +1,19 @@
-const { Location, Product, Category } = require('../models');
+const { Location, Product, ProductCategory, HouseholdMember } = require('../models');
+
+const getHouseholdId = async (userId) => {
+  const member = await HouseholdMember.findOne({ where: { user_id: userId } });
+  if (!member) throw new Error('Aucun foyer trouvé pour cet utilisateur');
+  return member.household_id;
+};
 
 // GET /api/locations
 exports.getAll = async (req, res) => {
   try {
+    const household_id = await getHouseholdId(req.user.id);
+
     const locations = await Location.findAll({
-      order: [['name', 'ASC']],
+      where: { household_id, deleted_at: null },
+      order: [['display_order', 'ASC']],
     });
 
     res.json(locations);
@@ -17,21 +26,22 @@ exports.getAll = async (req, res) => {
 // GET /api/locations/:id
 exports.getOne = async (req, res) => {
   try {
-    const location = await Location.findByPk(req.params.id, {
+    const household_id = await getHouseholdId(req.user.id);
+
+    const location = await Location.findOne({
+      where: { id: req.params.id, household_id, deleted_at: null },
       include: [
         {
           model: Product,
           as: 'products',
-          where: { userId: req.user.id },
+          where: { household_id, deleted_at: null },
           required: false,
-          include: [{ model: Category, as: 'category' }],
+          include: [{ model: ProductCategory, as: 'category' }],
         },
       ],
     });
 
-    if (!location) {
-      return res.status(404).json({ message: 'Emplacement non trouvé' });
-    }
+    if (!location) return res.status(404).json({ message: 'Emplacement non trouvé' });
 
     res.json(location);
   } catch (error) {
