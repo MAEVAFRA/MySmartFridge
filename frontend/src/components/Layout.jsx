@@ -1,11 +1,12 @@
 import { Outlet, NavLink } from 'react-router-dom'
-import { Refrigerator, Package, AlertTriangle, LogOut } from 'lucide-react'
+import { Refrigerator, Package, AlertTriangle, LogOut, Users } from 'lucide-react'
 
 function Layout({ user, onLogout }) {
   const navItems = [
     { to: '/', icon: Refrigerator, label: 'Accueil' },
     { to: '/products', icon: Package, label: 'Produits' },
     { to: '/expiring', icon: AlertTriangle, label: 'Péremptions' },
+    { to: '/household', icon: Users, label: 'Mon foyer' },
   ]
 
   return (
@@ -20,7 +21,7 @@ function Layout({ user, onLogout }) {
           
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">
-              Bonjour, {user.firstName || user.email}
+              Bonjour, {user.name || user.email}
             </span>
             <button
               onClick={onLogout}

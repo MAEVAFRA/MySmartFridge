@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Products from './pages/Products'
 import Expiring from './pages/Expiring'
+import Household from './pages/Household'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -62,6 +63,7 @@ function App() {
         <Route index element={<Home />} />
         <Route path="products" element={<Products />} />
         <Route path="expiring" element={<Expiring />} />
+        <Route path="household" element={<Household />} />
       </Route>
     </Routes>
   )
