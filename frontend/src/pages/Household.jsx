@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   Users, Mail, Copy, Check, X, LogOut, Crown, Shield, Eye, Edit3, User,
-  RefreshCw, Home, Plus, Trash2, AlertTriangle, CheckCircle, Clock
+  RefreshCw, Home as HomeIcon, Plus, Trash2, AlertTriangle, CheckCircle, Clock
 } from 'lucide-react'
 import api from '../services/api'
 
@@ -18,9 +18,21 @@ function Household() {
   const [inviteLoading, setInviteLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  // Création de foyer
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [createLoading, setCreateLoading] = useState(false)
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    currency: 'EUR',
+    monthly_budget: '',
+  })
+
+  // Sélecteur de foyer actif
+  const selectedHouseholdId = parseInt(localStorage.getItem('selectedHouseholdId'), 10) || null
+
   useEffect(() => {
     fetchInitialData()
-  }, [])
+  }, [selectedHouseholdId])
 
   const fetchInitialData = async () => {
     try {
@@ -32,8 +44,10 @@ function Household() {
       setHouseholds(householdsRes.data)
       setPendingReceived(invitesRes.data)
 
-      if (householdsRes.data.length > 0) {
-        await fetchHouseholdDetail(householdsRes.data[0].id)
+      // Charger le détail du foyer sélectionné, ou le premier
+      const targetId = selectedHouseholdId || (householdsRes.data[0]?.id)
+      if (targetId) {
+        await fetchHouseholdDetail(targetId)
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur de chargement')
@@ -83,7 +97,15 @@ function Household() {
   const handleAcceptInvite = async (token) => {
     try {
       await api.post('/households/invite/accept', { token })
-      await fetchInitialData()
+      // Récupérer la liste à jour pour connaître le nouveau foyer
+      const householdsRes = await api.get('/households')
+      const newHousehold = householdsRes.data.find(
+        (h) => !households.some((existing) => existing.id === h.id)
+      )
+      if (newHousehold) {
+        localStorage.setItem('selectedHouseholdId', newHousehold.id)
+      }
+      window.location.reload()
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de l\'acceptation')
     }
@@ -102,8 +124,11 @@ function Household() {
     if (!confirm('Voulez-vous vraiment quitter ce foyer ?')) return
     try {
       await api.post(`/households/${household.id}/leave`)
-      await fetchInitialData()
-      setHousehold(null)
+      // Si on quitte le foyer actif, reset le selectedHouseholdId
+      if (household.id === selectedHouseholdId) {
+        localStorage.removeItem('selectedHouseholdId')
+      }
+      window.location.reload()
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors du départ')
     }
@@ -125,6 +150,32 @@ function Household() {
       await fetchHouseholdDetail(household.id)
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de la régénération')
+    }
+  }
+
+  const handleSwitchHousehold = (householdId) => {
+    localStorage.setItem('selectedHouseholdId', householdId)
+    window.location.reload()
+  }
+
+  const handleCreateHousehold = async (e) => {
+    e.preventDefault()
+    if (!createForm.name.trim()) return
+
+    setCreateLoading(true)
+    setError('')
+    try {
+      const res = await api.post('/households', {
+        name: createForm.name,
+        currency: createForm.currency || 'EUR',
+        monthly_budget: createForm.monthly_budget ? parseFloat(createForm.monthly_budget) : undefined,
+      })
+      // Sélectionner automatiquement le nouveau foyer
+      localStorage.setItem('selectedHouseholdId', res.data.household.id)
+      window.location.reload()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erreur lors de la création du foyer')
+      setCreateLoading(false)
     }
   }
 
@@ -217,9 +268,129 @@ function Household() {
         </div>
       )}
 
+      {/* Liste des foyers + création */}
+      <div className="bg-white rounded-xl shadow p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <HomeIcon className="h-5 w-5 text-primary-600" />
+            Mes foyers ({households.length})
+          </h3>
+          {!showCreateForm && (
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Créer un foyer
+            </button>
+          )}
+        </div>
+
+        {showCreateForm && (
+          <form onSubmit={handleCreateHousehold} className="mb-6 bg-gray-50 rounded-lg p-4 space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nom du foyer *</label>
+              <input
+                type="text"
+                required
+                placeholder="Ex: Maison de campagne"
+                value={createForm.name}
+                onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Devise</label>
+                <select
+                  value={createForm.currency}
+                  onChange={(e) => setCreateForm({ ...createForm, currency: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                >
+                  <option value="EUR">EUR (€)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="GBP">GBP (£)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Budget mensuel</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="10"
+                  placeholder="Optionnel"
+                  value={createForm.monthly_budget}
+                  onChange={(e) => setCreateForm({ ...createForm, monthly_budget: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowCreateForm(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 text-sm"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                disabled={createLoading}
+                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm disabled:opacity-50"
+              >
+                {createLoading ? 'Création...' : 'Créer le foyer'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {households.length > 0 ? (
+          <div className="space-y-2">
+            {households.map((h) => (
+              <div
+                key={h.id}
+                className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                  h.id === selectedHouseholdId
+                    ? 'bg-primary-50 border-primary-200'
+                    : 'bg-white border-gray-100 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="h-10 w-10 rounded-full flex items-center justify-center text-white font-medium text-sm"
+                    style={{ backgroundColor: h.color || '#6366f1' }}
+                  >
+                    {h.name?.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">{h.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {getRoleLabel(h.role)}
+                      {h.id === selectedHouseholdId && (
+                        <span className="ml-2 text-primary-600 font-medium">• Actif</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                {h.id !== selectedHouseholdId && (
+                  <button
+                    onClick={() => handleSwitchHousehold(h.id)}
+                    className="px-3 py-1.5 text-sm text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                  >
+                    Utiliser ce foyer
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 text-center py-4">Aucun foyer pour le moment.</p>
+        )}
+      </div>
+
       {!household ? (
         <div className="bg-white rounded-xl shadow p-12 text-center">
-          <Home className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <HomeIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun foyer</h3>
           <p className="text-gray-500 mb-4">Vous n'appartenez à aucun foyer pour le moment.</p>
         </div>
