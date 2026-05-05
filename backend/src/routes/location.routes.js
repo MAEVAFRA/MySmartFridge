@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const locationController = require('../controllers/location.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
+const householdMiddleware = require('../middlewares/household.middleware');
 
 router.use(authMiddleware);
+router.use(householdMiddleware);
 
 // GET /api/locations - Liste des emplacements
 router.get('/', locationController.getAll);

@@ -1,17 +1,10 @@
 const { Op } = require('sequelize');
-const { Product, Location, ProductCategory, HouseholdMember } = require('../models');
-
-// Récupère le household_id de l'utilisateur connecté
-const getHouseholdId = async (userId) => {
-  const member = await HouseholdMember.findOne({ where: { user_id: userId } });
-  if (!member) throw new Error('Aucun foyer trouvé pour cet utilisateur');
-  return member.household_id;
-};
+const { Product, Location, ProductCategory } = require('../models');
 
 // GET /api/products
 exports.getAll = async (req, res) => {
   try {
-    const household_id = await getHouseholdId(req.user.id);
+    const household_id = req.householdId;
     const { location_id, category_id, search } = req.query;
 
     const where = { household_id, deleted_at: null };
@@ -38,7 +31,7 @@ exports.getAll = async (req, res) => {
 // GET /api/products/expiring
 exports.getExpiring = async (req, res) => {
   try {
-    const household_id = await getHouseholdId(req.user.id);
+    const household_id = req.householdId;
     const { days = 7 } = req.query;
 
     const limitDate = new Date();
@@ -70,7 +63,7 @@ exports.getExpiring = async (req, res) => {
 // GET /api/products/:id
 exports.getOne = async (req, res) => {
   try {
-    const household_id = await getHouseholdId(req.user.id);
+    const household_id = req.householdId;
 
     const product = await Product.findOne({
       where: { id: req.params.id, household_id, deleted_at: null },
@@ -91,7 +84,7 @@ exports.getOne = async (req, res) => {
 // POST /api/products
 exports.create = async (req, res) => {
   try {
-    const household_id = await getHouseholdId(req.user.id);
+    const household_id = req.householdId;
     const { name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price } = req.body;
 
     const product = await Product.create({
@@ -119,7 +112,7 @@ exports.create = async (req, res) => {
 // PUT /api/products/:id
 exports.update = async (req, res) => {
   try {
-    const household_id = await getHouseholdId(req.user.id);
+    const household_id = req.householdId;
 
     const product = await Product.findOne({
       where: { id: req.params.id, household_id, deleted_at: null },
@@ -147,7 +140,7 @@ exports.update = async (req, res) => {
 // DELETE /api/products/:id
 exports.delete = async (req, res) => {
   try {
-    const household_id = await getHouseholdId(req.user.id);
+    const household_id = req.householdId;
 
     const product = await Product.findOne({
       where: { id: req.params.id, household_id, deleted_at: null },

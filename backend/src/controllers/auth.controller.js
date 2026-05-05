@@ -10,6 +10,26 @@ const generateToken = (user) => {
   );
 };
 
+const getUserHouseholds = async (userId) => {
+  const memberships = await HouseholdMember.findAll({
+    where: { user_id: userId },
+    include: [
+      {
+        model: Household,
+        where: { deleted_at: null },
+        required: true,
+      },
+    ],
+    order: [['joined_at', 'ASC']],
+  });
+
+  return memberships.map((m) => ({
+    id: m.Household.id,
+    name: m.Household.name,
+    role: m.role,
+  }));
+};
+
 exports.register = async (req, res) => {
   try {
     const { email, password, name } = req.body;
@@ -58,10 +78,11 @@ exports.register = async (req, res) => {
     await NotifSettings.create({ user_id: user.id });
 
     const token = generateToken(user);
+    const households = await getUserHouseholds(user.id);
 
     res.status(201).json({
       message: 'Inscription réussie',
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { id: user.id, name: user.name, email: user.email, households },
       token,
     });
   } catch (error) {
@@ -94,10 +115,11 @@ exports.login = async (req, res) => {
     await user.update({ last_login_at: new Date() });
 
     const token = generateToken(user);
+    const households = await getUserHouseholds(user.id);
 
     res.json({
       message: 'Connexion réussie',
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { id: user.id, name: user.name, email: user.email, households },
       token,
     });
   } catch (error) {
@@ -112,7 +134,9 @@ exports.me = async (req, res) => {
       attributes: { exclude: ['password_hash'] },
     });
     if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
-    res.json({ user });
+
+    const households = await getUserHouseholds(user.id);
+    res.json({ user: { ...user.toJSON(), households } });
   } catch (error) {
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }

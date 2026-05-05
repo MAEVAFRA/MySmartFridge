@@ -7,12 +7,16 @@ const api = axios.create({
   },
 })
 
-// Intercepteur pour ajouter le token JWT
+// Intercepteur pour ajouter le token JWT et le household actif
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+    }
+    const selectedHouseholdId = localStorage.getItem('selectedHouseholdId')
+    if (selectedHouseholdId) {
+      config.headers['X-Household-Id'] = selectedHouseholdId
     }
     return config
   },
