@@ -199,10 +199,22 @@ exports.transferToStock = async (req, res) => {
       return res.status(400).json({ message: 'Aucun article coché à transférer' });
     }
 
-    // Emplacement par défaut (sinon le premier disponible)
-    const defaultLocation =
-      (await Location.findOne({ where: { household_id, deleted_at: null, is_default: true } })) ||
-      (await Location.findOne({ where: { household_id, deleted_at: null }, order: [['display_order', 'ASC']] }));
+    const { location_id } = req.body;
+
+    // Emplacement cible : celui choisi par l'utilisateur, sinon le défaut, sinon le premier disponible
+    let defaultLocation;
+    if (location_id) {
+      defaultLocation = await Location.findOne({
+        where: { id: location_id, household_id, deleted_at: null },
+      });
+      if (!defaultLocation) {
+        return res.status(400).json({ message: 'Emplacement invalide' });
+      }
+    } else {
+      defaultLocation =
+        (await Location.findOne({ where: { household_id, deleted_at: null, is_default: true } })) ||
+        (await Location.findOne({ where: { household_id, deleted_at: null }, order: [['display_order', 'ASC']] }));
+    }
 
     let transferred = 0;
     for (const it of checkedItems) {

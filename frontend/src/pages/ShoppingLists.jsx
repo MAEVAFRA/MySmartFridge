@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import {
-  ShoppingCart, Plus, Trash2, X, Check, PackagePlus, Pencil, ListChecks,
+  ShoppingCart, Plus, Trash2, X, Check, PackagePlus, Pencil, ListChecks, CheckCircle,
 } from 'lucide-react'
 import api from '../services/api'
 
@@ -8,27 +8,41 @@ const UNITS = ['unité', 'kg', 'g', 'L', 'mL', 'paquet', 'boîte', 'botte']
 
 function ShoppingLists() {
   const [lists, setLists] = useState([])
+  const [locations, setLocations] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
   const [showNewList, setShowNewList] = useState(false)
   const [newListName, setNewListName] = useState('')
 
   const [itemForm, setItemForm] = useState({ name: '', quantity: 1, unit: 'unité' })
+
+  // Modale de renommage
+  const [renameModal, setRenameModal] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+
+  // Modale de transfert
+  const [transferModal, setTransferModal] = useState(false)
+  const [transferLocationId, setTransferLocationId] = useState('')
   const [transferring, setTransferring] = useState(false)
 
   useEffect(() => {
-    fetchLists()
+    fetchData()
   }, [])
 
-  const fetchLists = async (keepSelection = true) => {
+  const fetchData = async (keepSelection = true) => {
     try {
-      const res = await api.get('/shopping-lists')
-      setLists(res.data)
+      const [listsRes, locsRes] = await Promise.all([
+        api.get('/shopping-lists'),
+        api.get('/locations'),
+      ])
+      setLists(listsRes.data)
+      setLocations(locsRes.data)
       setSelectedId((prev) => {
-        if (keepSelection && prev && res.data.some((l) => l.id === prev)) return prev
-        return res.data[0]?.id || null
+        if (keepSelection && prev && listsRes.data.some((l) => l.id === prev)) return prev
+        return listsRes.data[0]?.id || null
       })
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur de chargement')
@@ -37,7 +51,14 @@ function ShoppingLists() {
     }
   }
 
+  const flashSuccess = (msg) => {
+    setSuccess(msg)
+    setTimeout(() => setSuccess(''), 4000)
+  }
+
   const selectedList = lists.find((l) => l.id === selectedId) || null
+  const items = selectedList?.items || []
+  const checkedCount = items.filter((i) => i.checked).length
 
   const handleCreateList = async (e) => {
     e.preventDefault()
@@ -46,20 +67,27 @@ function ShoppingLists() {
       const res = await api.post('/shopping-lists', { name: newListName.trim() || undefined })
       setNewListName('')
       setShowNewList(false)
-      await fetchLists(false)
+      await fetchData(false)
       setSelectedId(res.data.id)
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de la création')
     }
   }
 
-  const handleRenameList = async (list) => {
-    const name = window.prompt('Nouveau nom de la liste :', list.name)
-    if (name === null || !name.trim()) return
+  // ── Renommage (modale) ──
+  const openRenameModal = () => {
+    setRenameValue(selectedList?.name || '')
+    setRenameModal(true)
+  }
+
+  const handleRename = async (e) => {
+    e.preventDefault()
+    if (!renameValue.trim()) return
     setError('')
     try {
-      await api.put(`/shopping-lists/${list.id}`, { name: name.trim() })
-      await fetchLists()
+      await api.put(`/shopping-lists/${selectedList.id}`, { name: renameValue.trim() })
+      setRenameModal(false)
+      await fetchData()
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors du renommage')
     }
@@ -70,7 +98,7 @@ function ShoppingLists() {
     setError('')
     try {
       await api.delete(`/shopping-lists/${list.id}`)
-      await fetchLists(false)
+      await fetchData(false)
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de la suppression')
     }
@@ -87,7 +115,7 @@ function ShoppingLists() {
         unit: itemForm.unit,
       })
       setItemForm({ name: '', quantity: 1, unit: 'unité' })
-      await fetchLists()
+      await fetchData()
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de l\'ajout')
     }
@@ -97,7 +125,7 @@ function ShoppingLists() {
     setError('')
     try {
       await api.put(`/shopping-lists/${selectedList.id}/items/${item.id}`, { checked: !item.checked })
-      await fetchLists()
+      await fetchData()
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur')
     }
@@ -107,23 +135,31 @@ function ShoppingLists() {
     setError('')
     try {
       await api.delete(`/shopping-lists/${selectedList.id}/items/${item.id}`)
-      await fetchLists()
+      await fetchData()
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur')
     }
   }
 
-  const handleTransfer = async () => {
-    if (!selectedList) return
-    const checkedCount = selectedList.items.filter((i) => i.checked).length
+  // ── Transfert vers le stock (modale avec choix d'emplacement) ──
+  const openTransferModal = () => {
     if (checkedCount === 0) return
-    if (!confirm(`Transférer ${checkedCount} article(s) coché(s) vers votre stock ?`)) return
+    const def = locations.find((l) => l.is_default) || locations[0]
+    setTransferLocationId(def ? String(def.id) : '')
+    setTransferModal(true)
+  }
+
+  const handleConfirmTransfer = async () => {
+    if (!selectedList || !transferLocationId) return
     setTransferring(true)
     setError('')
     try {
-      const res = await api.post(`/shopping-lists/${selectedList.id}/transfer`)
-      await fetchLists()
-      alert(res.data.message + (res.data.location ? ` (emplacement : ${res.data.location})` : ''))
+      const res = await api.post(`/shopping-lists/${selectedList.id}/transfer`, {
+        location_id: parseInt(transferLocationId, 10),
+      })
+      setTransferModal(false)
+      await fetchData()
+      flashSuccess(res.data.message + (res.data.location ? ` → ${res.data.location}` : ''))
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors du transfert')
     } finally {
@@ -138,9 +174,6 @@ function ShoppingLists() {
       </div>
     )
   }
-
-  const items = selectedList?.items || []
-  const checkedCount = items.filter((i) => i.checked).length
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -164,6 +197,15 @@ function ShoppingLists() {
         <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm flex items-center gap-2">
           {error}
           <button onClick={() => setError('')} className="ml-auto text-red-400 hover:text-red-600">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      {success && (
+        <div className="bg-green-50 text-green-700 p-4 rounded-lg text-sm flex items-center gap-2">
+          <CheckCircle className="h-5 w-5 flex-shrink-0" />
+          {success}
+          <button onClick={() => setSuccess('')} className="ml-auto text-green-400 hover:text-green-600">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -236,7 +278,7 @@ function ShoppingLists() {
                 </div>
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => handleRenameList(selectedList)}
+                    onClick={openRenameModal}
                     className="p-2 text-gray-400 hover:text-primary-600 rounded-lg hover:bg-gray-50"
                     title="Renommer"
                   >
@@ -316,23 +358,113 @@ function ShoppingLists() {
               )}
 
               {/* Pied : transfert vers le stock */}
-              <div className="p-5 border-t border-gray-100 flex items-center justify-between">
+              <div className="p-5 border-t border-gray-100 flex items-center justify-between gap-4 flex-wrap">
                 <p className="text-sm text-gray-500 flex items-center gap-1.5">
                   <ListChecks className="h-4 w-4" />
                   Cochez les articles achetés, puis transférez-les dans votre stock.
                 </p>
                 <button
-                  onClick={handleTransfer}
-                  disabled={checkedCount === 0 || transferring}
+                  onClick={openTransferModal}
+                  disabled={checkedCount === 0}
                   className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <PackagePlus className="h-4 w-4" />
-                  {transferring ? 'Transfert...' : `Transférer en stock (${checkedCount})`}
+                  Transférer en stock ({checkedCount})
                 </button>
               </div>
             </div>
           )}
         </>
+      )}
+
+      {/* Modale : renommer la liste */}
+      {renameModal && selectedList && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Renommer la liste</h2>
+            <form onSubmit={handleRename} className="space-y-4">
+              <input
+                autoFocus
+                type="text"
+                required
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRenameModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                >
+                  Renommer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modale : transfert vers le stock avec choix de l'emplacement */}
+      {transferModal && selectedList && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-1 flex items-center gap-2">
+              <PackagePlus className="h-5 w-5 text-green-600" />
+              Transférer en stock
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              {checkedCount} article(s) coché(s) seront ajoutés à votre stock dans l'emplacement choisi,
+              puis retirés de la liste.
+            </p>
+
+            {locations.length === 0 ? (
+              <p className="text-sm text-red-600 mb-4">
+                Aucun emplacement disponible. Créez-en un dans l'onglet « Emplacements » avant de transférer.
+              </p>
+            ) : (
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Emplacement de destination</label>
+                <select
+                  value={transferLocationId}
+                  onChange={(e) => setTransferLocationId(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  {locations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.icon} {loc.name}{loc.is_default ? ' (par défaut)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setTransferModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmTransfer}
+                disabled={transferring || !transferLocationId || locations.length === 0}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <PackagePlus className="h-4 w-4" />
+                {transferring ? 'Transfert...' : 'Transférer'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
