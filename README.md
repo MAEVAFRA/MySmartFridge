@@ -134,6 +134,7 @@ sudo docker compose exec postgres psql -U mysmartfridge -d mysmartfridge_dev
 
 - \dt (Voir les tables)
 - SELECT * FROM products; (Afficher les données d'une table)
+- sudo docker exec -it mysmartfridge_backend npm run db:seed (Pour dump BDD)
 
 ### Les tables de la BDD :
 

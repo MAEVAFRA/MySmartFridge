@@ -6,16 +6,15 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Products from './pages/Products'
 import Expiring from './pages/Expiring'
+import Locations from './pages/Locations'
 
 function App() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Vérifier si l'utilisateur est connecté
     const token = localStorage.getItem('token')
     const savedUser = localStorage.getItem('user')
-    
     if (token && savedUser) {
       setUser(JSON.parse(savedUser))
     }
@@ -44,24 +43,17 @@ function App() {
 
   return (
     <Routes>
-      {/* Routes publiques */}
-      <Route 
-        path="/login" 
-        element={user ? <Navigate to="/" /> : <Login onLogin={login} />} 
-      />
-      <Route 
-        path="/register" 
-        element={user ? <Navigate to="/" /> : <Register onLogin={login} />} 
-      />
+      <Route path="/login"    element={user ? <Navigate to="/" /> : <Login onLogin={login} />} />
+      <Route path="/register" element={user ? <Navigate to="/" /> : <Register onLogin={login} />} />
 
-      {/* Routes protégées */}
-      <Route 
-        path="/" 
+      <Route
+        path="/"
         element={user ? <Layout user={user} onLogout={logout} /> : <Navigate to="/login" />}
       >
         <Route index element={<Home />} />
-        <Route path="products" element={<Products />} />
-        <Route path="expiring" element={<Expiring />} />
+        <Route path="products"  element={<Products />} />
+        <Route path="expiring"  element={<Expiring />} />
+        <Route path="locations" element={<Locations />} />
       </Route>
     </Routes>
   )
