@@ -128,6 +128,14 @@ db:reset → remet la base à zéro
 | DELETE  | /api/locations/:id     | Supprimer un emplacement |
 | GET     | /api/categories        | Catégories       |
 | GET     | /api/products/expiring | Produits périmés |
+| GET     | /api/shopping-lists    | Listes de courses |
+| POST    | /api/shopping-lists    | Créer une liste  |
+| PUT     | /api/shopping-lists/:id | Renommer une liste |
+| DELETE  | /api/shopping-lists/:id | Supprimer une liste |
+| POST    | /api/shopping-lists/:id/items | Ajouter un article |
+| PUT     | /api/shopping-lists/:id/items/:itemId | Modifier / cocher un article |
+| DELETE  | /api/shopping-lists/:id/items/:itemId | Retirer un article |
+| POST    | /api/shopping-lists/:id/transfer | Transférer les articles cochés en stock |
 
 ## 🗄️ Naviguer dans la BDD 
 

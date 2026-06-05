@@ -18,7 +18,7 @@
 | Colonne | Total | ✅ Terminé | 🟠 En cours | ⬜ À faire |
 |---------|:-----:|:---------:|:----------:|:---------:|
 | Initialisation Projet | 9 | 7 | 0 | 2 |
-| Ticketing (backlog) | 38 | 1 | 0 | 37 |
+| Ticketing (backlog) | 38 | 3 | 1 | 34 |
 | Sprint (1 semaine) | 2 | 0 | 0 | 2 |
 | Hugo | 6 | 6 | 0 | 0 |
 | Omar | 9 | 9 | 0 | 0 |
@@ -84,9 +84,9 @@
 - ⬜ Total dépensé par période, catégorie et membre
 
 **Listes de courses**
-- ⬜ Créer et gérer des listes de courses partagées
-- ⬜ Ajouter des articles manuellement ou depuis l'inventaire
-- ⬜ Cocher les articles achetés et les transférer en stock
+- ✅ Créer et gérer des listes de courses partagées
+- 🟠 Ajouter des articles manuellement ou depuis l'inventaire *(ajout manuel fait ; « depuis l'inventaire » à venir)*
+- ✅ Cocher les articles achetés et les transférer en stock
 
 **Foyer & collaboration**
 - ⬜ Retirer un membre ou quitter un foyer
