@@ -122,6 +122,10 @@ db:reset → remet la base à zéro
 | PUT     | /api/products/:id      | Modifier         |
 | DELETE  | /api/products/:id      | Supprimer        |
 | GET     | /api/locations         | Emplacements     |
+| GET     | /api/locations/:id     | Détail + produits |
+| POST    | /api/locations         | Ajouter un emplacement |
+| PUT     | /api/locations/:id     | Modifier un emplacement |
+| DELETE  | /api/locations/:id     | Supprimer un emplacement |
 | GET     | /api/categories        | Catégories       |
 | GET     | /api/products/expiring | Produits périmés |
 

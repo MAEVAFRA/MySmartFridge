@@ -13,4 +13,13 @@ router.get('/', locationController.getAll);
 // GET /api/locations/:id - Détail avec produits
 router.get('/:id', locationController.getOne);
 
+// POST /api/locations - Créer un emplacement
+router.post('/', locationController.create);
+
+// PUT /api/locations/:id - Modifier un emplacement
+router.put('/:id', locationController.update);
+
+// DELETE /api/locations/:id - Supprimer un emplacement
+router.delete('/:id', locationController.delete);
+
 module.exports = router;
