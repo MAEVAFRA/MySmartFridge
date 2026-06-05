@@ -18,7 +18,7 @@
 | Colonne | Total | ✅ Terminé | 🟠 En cours | ⬜ À faire |
 |---------|:-----:|:---------:|:----------:|:---------:|
 | Initialisation Projet | 9 | 7 | 0 | 2 |
-| Ticketing (backlog) | 38 | 0 | 1 | 37 |
+| Ticketing (backlog) | 38 | 1 | 0 | 37 |
 | Sprint (1 semaine) | 2 | 0 | 0 | 2 |
 | Hugo | 6 | 6 | 0 | 0 |
 | Omar | 9 | 9 | 0 | 0 |
@@ -45,8 +45,8 @@
 
 ## 📋 Ticketing (Backlog produit)
 
-### 🟠 En cours
-- 🟠 Badge rouge sur les produits déjà périmés
+### ✅ Terminé
+- ✅ Badge rouge sur les produits déjà périmés
 
 ### ⬜ À faire
 
