@@ -30,7 +30,8 @@ function Register({ onLogin }) {
     setLoading(true)
 
     try {
-      const { confirmPassword, ...dataToSend } = formData
+      const { confirmPassword, firstName, lastName, ...rest } = formData
+      const dataToSend = { ...rest, name: `${firstName} ${lastName}`.trim() }
       const response = await api.post('/auth/register', dataToSend)
       onLogin(response.data.user, response.data.token)
     } catch (err) {

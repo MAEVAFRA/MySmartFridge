@@ -8,7 +8,7 @@ const getHouseholdId = async (userId) => {
 
 exports.getAll = async (req, res) => {
   try {
-    const household_id = await getHouseholdId(req.user.id);
+    const household_id = req.householdId || await getHouseholdId(req.user.id);
     const locations = await Location.findAll({
       where: { household_id, deleted_at: null },
       order: [['display_order', 'ASC']],
@@ -21,7 +21,7 @@ exports.getAll = async (req, res) => {
 
 exports.getOne = async (req, res) => {
   try {
-    const household_id = await getHouseholdId(req.user.id);
+    const household_id = req.householdId || await getHouseholdId(req.user.id);
     const location = await Location.findOne({
       where: { id: req.params.id, household_id, deleted_at: null },
       include: [{
@@ -39,7 +39,7 @@ exports.getOne = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const household_id = await getHouseholdId(req.user.id);
+    const household_id = req.householdId || await getHouseholdId(req.user.id);
     const { name, type, icon, color } = req.body;
     if (!name) return res.status(400).json({ message: 'Le nom est obligatoire' });
     const count = await Location.count({ where: { household_id, deleted_at: null } });
@@ -58,7 +58,7 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    const household_id = await getHouseholdId(req.user.id);
+    const household_id = req.householdId || await getHouseholdId(req.user.id);
     const location = await Location.findOne({
       where: { id: req.params.id, household_id, deleted_at: null },
     });
@@ -73,7 +73,7 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    const household_id = await getHouseholdId(req.user.id);
+    const household_id = req.householdId || await getHouseholdId(req.user.id);
     const location = await Location.findOne({
       where: { id: req.params.id, household_id, deleted_at: null },
     });

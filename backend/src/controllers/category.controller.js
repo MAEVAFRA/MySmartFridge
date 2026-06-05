@@ -1,10 +1,4 @@
-const { ProductCategory, Product, Location, HouseholdMember } = require('../models');
-
-const getHouseholdId = async (userId) => {
-  const member = await HouseholdMember.findOne({ where: { user_id: userId } });
-  if (!member) throw new Error('Aucun foyer trouvé pour cet utilisateur');
-  return member.household_id;
-};
+const { ProductCategory, Product, Location } = require('../models');
 
 // GET /api/categories
 exports.getAll = async (req, res) => {
@@ -23,7 +17,7 @@ exports.getAll = async (req, res) => {
 // GET /api/categories/:id
 exports.getOne = async (req, res) => {
   try {
-    const household_id = await getHouseholdId(req.user.id);
+    const household_id = req.householdId;
 
     const category = await ProductCategory.findByPk(req.params.id, {
       include: [
