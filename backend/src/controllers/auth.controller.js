@@ -141,3 +141,75 @@ exports.me = async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }
 };
+
+// PUT /api/auth/profile
+exports.updateProfile = async (req, res) => {
+  try {
+    const { name, email, avatar_url, dietary_preferences, allergies } = req.body;
+
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
+
+    const updates = {};
+
+    if (name !== undefined) {
+      if (!name.trim()) return res.status(400).json({ message: 'Le nom ne peut pas être vide' });
+      updates.name = name.trim();
+    }
+
+    if (email !== undefined) {
+      const normalized = email.trim().toLowerCase();
+      if (!normalized) return res.status(400).json({ message: 'L\'email ne peut pas être vide' });
+      if (normalized !== user.email.toLowerCase()) {
+        const existing = await User.findOne({ where: { email: normalized } });
+        if (existing) return res.status(400).json({ message: 'Cet email est déjà utilisé' });
+      }
+      updates.email = normalized;
+    }
+
+    if (avatar_url !== undefined)          updates.avatar_url = avatar_url || null;
+    if (dietary_preferences !== undefined) updates.dietary_preferences = dietary_preferences || null;
+    if (allergies !== undefined)           updates.allergies = allergies || null;
+
+    await user.update(updates);
+
+    const households = await getUserHouseholds(user.id);
+    const json = user.toJSON();
+    delete json.password_hash;
+
+    res.json({ message: 'Profil mis à jour', user: { ...json, households } });
+  } catch (error) {
+    console.error('Erreur updateProfile:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+// PUT /api/auth/password
+exports.changePassword = async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body;
+
+    if (!current_password || !new_password) {
+      return res.status(400).json({ message: 'Mot de passe actuel et nouveau mot de passe requis' });
+    }
+    if (new_password.length < 6) {
+      return res.status(400).json({ message: 'Le nouveau mot de passe doit faire au moins 6 caractères' });
+    }
+
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
+
+    const isValid = await bcrypt.compare(current_password, user.password_hash);
+    if (!isValid) {
+      return res.status(401).json({ message: 'Mot de passe actuel incorrect' });
+    }
+
+    const password_hash = await bcrypt.hash(new_password, 12);
+    await user.update({ password_hash });
+
+    res.json({ message: 'Mot de passe modifié avec succès' });
+  } catch (error) {
+    console.error('Erreur changePassword:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};

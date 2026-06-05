@@ -9,6 +9,7 @@ import Locations from './pages/Locations'
 import ShoppingLists from './pages/ShoppingLists'
 import Expiring from './pages/Expiring'
 import Household from './pages/Household'
+import Profile from './pages/Profile'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -104,6 +105,7 @@ function App() {
         <Route path="shopping" element={<ShoppingLists />} />
         <Route path="expiring" element={<Expiring />} />
         <Route path="household" element={<Household />} />
+        <Route path="profile" element={<Profile />} />
       </Route>
     </Routes>
   )

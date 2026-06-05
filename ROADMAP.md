@@ -18,7 +18,7 @@
 | Colonne | Total | ✅ Terminé | 🟠 En cours | ⬜ À faire |
 |---------|:-----:|:---------:|:----------:|:---------:|
 | Initialisation Projet | 9 | 7 | 0 | 2 |
-| Ticketing (backlog) | 38 | 3 | 1 | 34 |
+| Ticketing (backlog) | 38 | 4 | 1 | 33 |
 | Sprint (1 semaine) | 2 | 0 | 0 | 2 |
 | Hugo | 6 | 6 | 0 | 0 |
 | Omar | 9 | 9 | 0 | 0 |
@@ -95,7 +95,7 @@
 - ⬜ Upload d'avatar
 
 **Compte utilisateur**
-- ⬜ Consultation et modification du profil
+- ✅ Consultation et modification du profil *(infos + changement de mot de passe)*
 - ⬜ Réinitialisation du mot de passe par email
 
 **Notifications**

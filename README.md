@@ -136,6 +136,9 @@ db:reset → remet la base à zéro
 | PUT     | /api/shopping-lists/:id/items/:itemId | Modifier / cocher un article |
 | DELETE  | /api/shopping-lists/:id/items/:itemId | Retirer un article |
 | POST    | /api/shopping-lists/:id/transfer | Transférer les articles cochés en stock |
+| GET     | /api/auth/me           | Profil courant   |
+| PUT     | /api/auth/profile      | Modifier son profil |
+| PUT     | /api/auth/password     | Changer son mot de passe |
 
 ## 🗄️ Naviguer dans la BDD 
 
