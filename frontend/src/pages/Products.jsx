@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Trash2, Edit2 } from 'lucide-react'
+import { Plus, Search, Trash2, Edit2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import api from '../services/api'
 
 function Products() {
@@ -11,6 +11,7 @@ function Products() {
   const [editingProduct, setEditingProduct] = useState(null)
   const [search, setSearch] = useState('')
   const [filterLocation, setFilterLocation] = useState('')
+  const [sort, setSort] = useState({ key: 'expires_at', dir: 'asc' })
 
   const [formData, setFormData] = useState({
     name: '',
@@ -122,6 +123,43 @@ function Products() {
     return matchSearch && matchLocation
   })
 
+  // ── Tri par colonne (les valeurs manquantes restent toujours en bas) ──
+  const toggleSort = (key) => {
+    setSort((prev) =>
+      prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }
+    )
+  }
+
+  const sortValue = (p, key) => {
+    switch (key) {
+      case 'name':       return p.name.toLowerCase()
+      case 'quantity':   return p.quantity ?? 0
+      case 'location':   return p.location?.name ? p.location.name.toLowerCase() : null
+      case 'expires_at': return p.expires_at ? new Date(p.expires_at).getTime() : null
+      default:           return null
+    }
+  }
+
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    const va = sortValue(a, sort.key)
+    const vb = sortValue(b, sort.key)
+    if (va === null && vb === null) return 0
+    if (va === null) return 1   // a en bas
+    if (vb === null) return -1  // b en bas
+    const cmp =
+      typeof va === 'number' && typeof vb === 'number'
+        ? va - vb
+        : String(va).localeCompare(String(vb), 'fr')
+    return sort.dir === 'asc' ? cmp : -cmp
+  })
+
+  const sortIcon = (key) => {
+    if (sort.key !== key) return <ChevronsUpDown className="inline h-3.5 w-3.5 text-gray-300 ml-1" />
+    return sort.dir === 'asc'
+      ? <ChevronUp className="inline h-3.5 w-3.5 text-gray-600 ml-1" />
+      : <ChevronDown className="inline h-3.5 w-3.5 text-gray-600 ml-1" />
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -175,15 +213,35 @@ function Products() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Produit</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantité</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Emplacement</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Péremption</th>
+                <th
+                  onClick={() => toggleSort('name')}
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none hover:text-gray-700"
+                >
+                  Produit {sortIcon('name')}
+                </th>
+                <th
+                  onClick={() => toggleSort('quantity')}
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none hover:text-gray-700"
+                >
+                  Quantité {sortIcon('quantity')}
+                </th>
+                <th
+                  onClick={() => toggleSort('location')}
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none hover:text-gray-700"
+                >
+                  Emplacement {sortIcon('location')}
+                </th>
+                <th
+                  onClick={() => toggleSort('expires_at')}
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer select-none hover:text-gray-700"
+                >
+                  Péremption {sortIcon('expires_at')}
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredProducts.map((product) => (
+              {sortedProducts.map((product) => (
                 <tr key={product.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="font-medium text-gray-900">{product.name}</div>
