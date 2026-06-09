@@ -15,6 +15,7 @@ router.delete('/:id', shoppingController.delete);
 
 // Articles d'une liste
 router.post('/:id/items', shoppingController.addItem);
+router.post('/:id/items/from-inventory', shoppingController.addItemsFromInventory);
 router.put('/:id/items/:itemId', shoppingController.updateItem);
 router.delete('/:id/items/:itemId', shoppingController.deleteItem);
 

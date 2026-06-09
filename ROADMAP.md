@@ -18,7 +18,7 @@
 | Colonne | Total | ✅ Terminé | 🟠 En cours | ⬜ À faire |
 |---------|:-----:|:---------:|:----------:|:---------:|
 | Initialisation Projet | 9 | 7 | 0 | 2 |
-| Ticketing (backlog) | 38 | 12 | 1 | 25 |
+| Ticketing (backlog) | 38 | 13 | 0 | 25 |
 | Sprint (1 semaine) | 2 | 0 | 0 | 2 |
 | Hugo | 6 | 6 | 0 | 0 |
 | Omar | 9 | 9 | 0 | 0 |
@@ -85,7 +85,7 @@
 
 **Listes de courses**
 - ✅ Créer et gérer des listes de courses partagées
-- 🟠 Ajouter des articles manuellement ou depuis l'inventaire *(ajout manuel fait ; « depuis l'inventaire » à venir)*
+- ✅ Ajouter des articles manuellement ou depuis l'inventaire
 - ✅ Cocher les articles achetés et les transférer en stock
 
 **Foyer & collaboration**
