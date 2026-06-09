@@ -18,7 +18,7 @@
 | Colonne | Total | ✅ Terminé | 🟠 En cours | ⬜ À faire |
 |---------|:-----:|:---------:|:----------:|:---------:|
 | Initialisation Projet | 9 | 7 | 0 | 2 |
-| Ticketing (backlog) | 38 | 4 | 1 | 33 |
+| Ticketing (backlog) | 38 | 12 | 1 | 25 |
 | Sprint (1 semaine) | 2 | 0 | 0 | 2 |
 | Hugo | 6 | 6 | 0 | 0 |
 | Omar | 9 | 9 | 0 | 0 |
@@ -65,14 +65,14 @@
 - ⬜ Afficher une photo pour chaque produit
 
 **Recettes**
-- ⬜ Suggestions de recettes selon les produits disponibles
-- ⬜ Affichage du détail d'une recette avec photo et étapes
-- ⬜ Indication des ingrédients disponibles vs manquants
-- ⬜ Priorité aux produits proches de la péremption
-- ⬜ Décrémenter les stocks utilisés quand une recette est effectuée
-- ⬜ Filtres (végétarien, sans gluten, temps de préparation)
-- ⬜ Sauvegarder une recette en favoris
-- ⬜ Historique des recettes cuisinées
+- ✅ Suggestions de recettes selon les produits disponibles
+- ✅ Affichage du détail d'une recette avec photo et étapes
+- ✅ Indication des ingrédients disponibles vs manquants
+- ✅ Priorité aux produits proches de la péremption (anti-gaspi)
+- ✅ Décrémenter les stocks utilisés quand une recette est effectuée
+- ✅ Filtres (végétarien, sans gluten, temps de préparation)
+- ✅ Sauvegarder une recette en favoris
+- ✅ Historique des recettes cuisinées
 
 **Dépenses & budget partagé**
 - ⬜ Enregistrer une dépense et l'associer à un ticket

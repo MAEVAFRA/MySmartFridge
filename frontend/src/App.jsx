@@ -7,6 +7,7 @@ import Register from './pages/Register'
 import Products from './pages/Products'
 import Locations from './pages/Locations'
 import ShoppingLists from './pages/ShoppingLists'
+import Recipes from './pages/Recipes'
 import Expiring from './pages/Expiring'
 import Household from './pages/Household'
 import Profile from './pages/Profile'
@@ -103,6 +104,7 @@ function App() {
         <Route path="products" element={<Products />} />
         <Route path="locations" element={<Locations />} />
         <Route path="shopping" element={<ShoppingLists />} />
+        <Route path="recipes" element={<Recipes />} />
         <Route path="expiring" element={<Expiring />} />
         <Route path="household" element={<Household />} />
         <Route path="profile" element={<Profile />} />
