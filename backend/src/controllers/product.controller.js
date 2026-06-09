@@ -87,11 +87,11 @@ exports.getOne = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     const household_id = req.householdId;
-    const { name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price } = req.body;
+    const { name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price, image_url } = req.body;
 
     const product = await Product.create({
       name, quantity, unit, expires_at, barcode, notes,
-      location_id, category_id, brand, price,
+      location_id, category_id, brand, price, image_url,
       household_id,
       added_by: req.user.id,
       expiry_source: 'manual',
@@ -122,8 +122,8 @@ exports.update = async (req, res) => {
 
     if (!product) return res.status(404).json({ message: 'Produit non trouvé' });
 
-    const { name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price } = req.body;
-    await product.update({ name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price });
+    const { name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price, image_url } = req.body;
+    await product.update({ name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price, image_url });
 
     const updated = await Product.findByPk(product.id, {
       include: [

@@ -1,6 +1,35 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Trash2, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Utensils } from 'lucide-react'
+import { Plus, Search, Trash2, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Utensils, Upload, Package, Image as ImageIcon } from 'lucide-react'
 import api from '../services/api'
+
+// Redimensionne une image (côté client) et renvoie une data-URL JPEG légère,
+// pour éviter de stocker des fichiers volumineux en base.
+const fileToResizedDataUrl = (file, maxSize = 600, quality = 0.72) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        let { width, height } = img
+        if (width > height && width > maxSize) {
+          height = Math.round((height * maxSize) / width)
+          width = maxSize
+        } else if (height > maxSize) {
+          width = Math.round((width * maxSize) / height)
+          height = maxSize
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+        resolve(canvas.toDataURL('image/jpeg', quality))
+      }
+      img.onerror = reject
+      img.src = e.target.result
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
 
 function Products() {
   const [products, setProducts] = useState([])
@@ -23,6 +52,7 @@ function Products() {
     location_id: '',
     category_id: '',
     notes: '',
+    image_url: '',
   })
 
   useEffect(() => {
@@ -48,16 +78,29 @@ function Products() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    const payload = { ...formData, image_url: formData.image_url || null }
     try {
       if (editingProduct) {
-        await api.put(`/products/${editingProduct.id}`, formData)
+        await api.put(`/products/${editingProduct.id}`, payload)
       } else {
-        await api.post('/products', formData)
+        await api.post('/products', payload)
       }
       fetchData()
       closeModal()
     } catch (error) {
       console.error('Erreur:', error)
+    }
+  }
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // autorise la re-sélection du même fichier
+    if (!file) return
+    try {
+      const dataUrl = await fileToResizedDataUrl(file)
+      setFormData((f) => ({ ...f, image_url: dataUrl }))
+    } catch {
+      console.error('Erreur de lecture de l\'image')
     }
   }
 
@@ -88,6 +131,7 @@ function Products() {
         location_id: product.location_id || '',
         category_id: product.category_id || '',
         notes: product.notes || '',
+        image_url: product.image_url || '',
       })
     } else {
       setEditingProduct(null)
@@ -99,6 +143,7 @@ function Products() {
         location_id: locations[0]?.id || '',
         category_id: '',
         notes: '',
+        image_url: '',
       })
     }
     setShowModal(true)
@@ -252,10 +297,25 @@ function Products() {
               {sortedProducts.map((product) => (
                 <tr key={product.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
-                    <div className="font-medium text-gray-900">{product.name}</div>
-                    {product.category && (
-                      <div className="text-sm text-gray-500">{product.category.name}</div>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {product.image_url ? (
+                        <img
+                          src={product.image_url}
+                          alt={product.name}
+                          className="h-10 w-10 rounded-lg object-cover flex-shrink-0 border border-gray-100"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0 text-lg">
+                          {product.category?.icon || <Package className="h-5 w-5 text-gray-300" />}
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-medium text-gray-900">{product.name}</div>
+                        {product.category && (
+                          <div className="text-sm text-gray-500">{product.category.name}</div>
+                        )}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-gray-600">
                     {product.quantity} {product.unit}
@@ -312,6 +372,35 @@ function Products() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Photo</label>
+                <div className="flex items-center gap-3">
+                  <div className="h-16 w-16 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {formData.image_url ? (
+                      <img src={formData.image_url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <ImageIcon className="h-6 w-6 text-gray-300" />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="cursor-pointer text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 inline-flex items-center gap-1.5 w-fit">
+                      <Upload className="h-4 w-4" />
+                      {formData.image_url ? 'Changer la photo' : 'Choisir une photo'}
+                      <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                    </label>
+                    {formData.image_url && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, image_url: '' })}
+                        className="text-xs text-red-500 hover:text-red-600 w-fit"
+                      >
+                        Retirer la photo
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

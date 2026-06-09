@@ -18,7 +18,7 @@
 | Colonne | Total | ✅ Terminé | 🟠 En cours | ⬜ À faire |
 |---------|:-----:|:---------:|:----------:|:---------:|
 | Initialisation Projet | 9 | 7 | 0 | 2 |
-| Ticketing (backlog) | 38 | 17 | 0 | 21 |
+| Ticketing (backlog) | 38 | 18 | 0 | 20 |
 | Sprint (1 semaine) | 2 | 0 | 0 | 2 |
 | Hugo | 6 | 6 | 0 | 0 |
 | Omar | 9 | 9 | 0 | 0 |
@@ -62,7 +62,7 @@
 - ⬜ Scanner un code-barre pour pré-remplir le formulaire
 - ⬜ Estimer automatiquement la péremption (configurable)
 - ✅ Trier par date de péremption / nom / quantité
-- ⬜ Afficher une photo pour chaque produit
+- ✅ Afficher une photo pour chaque produit
 
 **Recettes**
 - ✅ Suggestions de recettes selon les produits disponibles
