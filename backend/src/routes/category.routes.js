@@ -13,4 +13,7 @@ router.get('/', categoryController.getAll);
 // GET /api/categories/:id - Détail avec produits
 router.get('/:id', categoryController.getOne);
 
+// PUT /api/categories/:id - Configurer les durées de conservation
+router.put('/:id', categoryController.update);
+
 module.exports = router;

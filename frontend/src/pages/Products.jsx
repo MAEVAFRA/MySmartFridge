@@ -1,6 +1,9 @@
-import { useState, useEffect } from 'react'
-import { Plus, Search, Trash2, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Utensils, Upload, Package, Image as ImageIcon } from 'lucide-react'
+import { useState, useEffect, Fragment } from 'react'
+import { Plus, Search, Trash2, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Utensils, Upload, Package, Image as ImageIcon, Clock } from 'lucide-react'
 import api from '../services/api'
+
+const toYmd = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 // Redimensionne une image (côté client) et renvoie une data-URL JPEG légère,
 // pour éviter de stocker des fichiers volumineux en base.
@@ -43,6 +46,9 @@ function Products() {
   const [sort, setSort] = useState({ key: 'expires_at', dir: 'asc' })
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [shelfModal, setShelfModal] = useState(false)
+  const [shelfDrafts, setShelfDrafts] = useState({})
+  const [savingShelf, setSavingShelf] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -120,6 +126,49 @@ function Products() {
     }
   }
 
+  // ── Configuration des durées de conservation (estimation auto) ──
+  const openShelfModal = () => {
+    const drafts = {}
+    categories.forEach((c) => {
+      drafts[c.id] = {
+        avg_shelf_days: c.avg_shelf_days ?? '',
+        avg_shelf_days_freezer: c.avg_shelf_days_freezer ?? '',
+      }
+    })
+    setShelfDrafts(drafts)
+    setShelfModal(true)
+  }
+
+  const setDraft = (id, key, value) =>
+    setShelfDrafts((d) => ({ ...d, [id]: { ...d[id], [key]: value } }))
+
+  const saveShelf = async () => {
+    setSavingShelf(true)
+    try {
+      const calls = categories
+        .filter((c) => {
+          const d = shelfDrafts[c.id]
+          return (
+            String(d.avg_shelf_days) !== String(c.avg_shelf_days ?? '') ||
+            String(d.avg_shelf_days_freezer) !== String(c.avg_shelf_days_freezer ?? '')
+          )
+        })
+        .map((c) =>
+          api.put(`/categories/${c.id}`, {
+            avg_shelf_days: shelfDrafts[c.id].avg_shelf_days === '' ? null : shelfDrafts[c.id].avg_shelf_days,
+            avg_shelf_days_freezer: shelfDrafts[c.id].avg_shelf_days_freezer === '' ? null : shelfDrafts[c.id].avg_shelf_days_freezer,
+          })
+        )
+      await Promise.all(calls)
+      setShelfModal(false)
+      fetchData()
+    } catch (error) {
+      console.error('Erreur:', error)
+    } finally {
+      setSavingShelf(false)
+    }
+  }
+
   const openModal = (product = null) => {
     if (product) {
       setEditingProduct(product)
@@ -176,6 +225,16 @@ function Products() {
     return matchSearch && matchLocation
   })
 
+  // ── Estimation de péremption (aperçu dans le formulaire) ──
+  const selectedCat = categories.find((c) => String(c.id) === String(formData.category_id))
+  const selectedLoc = locations.find((l) => String(l.id) === String(formData.location_id))
+  const estDays = selectedCat
+    ? (selectedLoc?.type === 'freezer' && selectedCat.avg_shelf_days_freezer
+        ? selectedCat.avg_shelf_days_freezer
+        : selectedCat.avg_shelf_days)
+    : null
+  const estDate = estDays != null ? new Date(Date.now() + estDays * 86400000) : null
+
   // ── Tri par colonne (les valeurs manquantes restent toujours en bas) ──
   const toggleSort = (key) => {
     setSort((prev) =>
@@ -225,13 +284,23 @@ function Products() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Mes produits</h1>
-        <button
-          onClick={() => openModal()}
-          className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700"
-        >
-          <Plus className="h-5 w-5" />
-          Ajouter
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openShelfModal}
+            className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50"
+            title="Configurer les durées de conservation utilisées pour l'estimation auto"
+          >
+            <Clock className="h-5 w-5" />
+            <span className="hidden sm:inline">Durées de conservation</span>
+          </button>
+          <button
+            onClick={() => openModal()}
+            className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700"
+          >
+            <Plus className="h-5 w-5" />
+            Ajouter
+          </button>
+        </div>
       </div>
 
       {/* Filtres */}
@@ -471,6 +540,21 @@ function Products() {
                   onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                 />
+                {!formData.expires_at && estDays != null && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Laissée vide → estimée à{' '}
+                    <span className="font-medium text-gray-700">{estDate.toLocaleDateString('fr-FR')}</span>{' '}
+                    ({selectedCat.icon} {selectedCat.name}, {estDays} j
+                    {selectedLoc?.type === 'freezer' && selectedCat.avg_shelf_days_freezer ? ' au congélateur' : ''})
+                    <button
+                      type="button"
+                      onClick={() => setFormData((f) => ({ ...f, expires_at: toYmd(estDate) }))}
+                      className="ml-1 text-primary-600 hover:underline"
+                    >
+                      Appliquer
+                    </button>
+                  </p>
+                )}
               </div>
 
               <div>
@@ -541,6 +625,64 @@ function Products() {
                 className="text-sm text-gray-600 hover:text-gray-800"
               >
                 Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale : durées de conservation (estimation auto de la péremption) */}
+      {shelfModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[85vh] flex flex-col">
+            <div className="p-5 border-b border-gray-100">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary-600" />
+                Durées de conservation
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Servent à estimer automatiquement la péremption d'un produit ajouté sans date (en jours).
+              </p>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              <div className="grid grid-cols-[1fr_5rem_5rem] gap-x-3 gap-y-2 items-center">
+                <span></span>
+                <span className="text-[11px] font-medium text-gray-500 text-center uppercase">Frigo / placard</span>
+                <span className="text-[11px] font-medium text-gray-500 text-center uppercase">Congélateur</span>
+                {categories.map((c) => (
+                  <Fragment key={c.id}>
+                    <span className="text-sm text-gray-700 truncate">{c.icon} {c.name}</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={shelfDrafts[c.id]?.avg_shelf_days ?? ''}
+                      onChange={(e) => setDraft(c.id, 'avg_shelf_days', e.target.value)}
+                      className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      value={shelfDrafts[c.id]?.avg_shelf_days_freezer ?? ''}
+                      onChange={(e) => setDraft(c.id, 'avg_shelf_days_freezer', e.target.value)}
+                      className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </Fragment>
+                ))}
+              </div>
+            </div>
+            <div className="p-5 border-t border-gray-100 flex justify-end gap-3">
+              <button
+                onClick={() => setShelfModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={saveShelf}
+                disabled={savingShelf}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm disabled:opacity-50"
+              >
+                {savingShelf ? 'Enregistrement...' : 'Enregistrer'}
               </button>
             </div>
           </div>
