@@ -8,6 +8,7 @@ import Products from './pages/Products'
 import Locations from './pages/Locations'
 import ShoppingLists from './pages/ShoppingLists'
 import Recipes from './pages/Recipes'
+import Stats from './pages/Stats'
 import Expiring from './pages/Expiring'
 import Household from './pages/Household'
 import Profile from './pages/Profile'
@@ -105,6 +106,7 @@ function App() {
         <Route path="locations" element={<Locations />} />
         <Route path="shopping" element={<ShoppingLists />} />
         <Route path="recipes" element={<Recipes />} />
+        <Route path="stats" element={<Stats />} />
         <Route path="expiring" element={<Expiring />} />
         <Route path="household" element={<Household />} />
         <Route path="profile" element={<Profile />} />

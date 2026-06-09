@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Product, Location, ProductCategory } = require('../models');
+const { Product, Location, ProductCategory, ProductConsumptionLog } = require('../models');
 
 // GET /api/products
 exports.getAll = async (req, res) => {
@@ -152,6 +152,23 @@ exports.delete = async (req, res) => {
 
     // Soft delete
     await product.update({ deleted_at: new Date() });
+
+    // Journalise le motif de sortie pour alimenter les statistiques de
+    // consommation / gaspillage (consumed | thrown | expired).
+    const reason = (req.body && req.body.reason) || req.query.reason;
+    if (['consumed', 'thrown', 'expired'].includes(reason)) {
+      await ProductConsumptionLog.create({
+        household_id,
+        user_id: req.user.id,
+        product_id: product.id,
+        category_id: product.category_id || null,
+        action: reason,
+        quantity: product.quantity || 1,
+        unit: product.unit || null,
+        price_at_time: product.price_per_unit ?? product.price ?? null,
+        logged_at: new Date(),
+      });
+    }
 
     res.json({ message: 'Produit supprimé' });
   } catch (error) {

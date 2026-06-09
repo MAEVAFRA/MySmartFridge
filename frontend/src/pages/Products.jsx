@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Trash2, Edit2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { Plus, Search, Trash2, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Utensils } from 'lucide-react'
 import api from '../services/api'
 
 function Products() {
@@ -12,6 +12,8 @@ function Products() {
   const [search, setSearch] = useState('')
   const [filterLocation, setFilterLocation] = useState('')
   const [sort, setSort] = useState({ key: 'expires_at', dir: 'asc' })
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -59,13 +61,19 @@ function Products() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('Supprimer ce produit ?')) return
+  // Suppression avec motif : alimente les statistiques de consommation /
+  // gaspillage. reason = 'consumed' | 'thrown' | null (retrait simple).
+  const confirmDelete = async (reason) => {
+    if (!deleteTarget) return
+    setDeleting(true)
     try {
-      await api.delete(`/products/${id}`)
+      await api.delete(`/products/${deleteTarget.id}`, reason ? { data: { reason } } : undefined)
+      setDeleteTarget(null)
       fetchData()
     } catch (error) {
       console.error('Erreur:', error)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -275,7 +283,7 @@ function Products() {
                     <button onClick={() => openModal(product)} className="text-gray-400 hover:text-primary-600">
                       <Edit2 className="h-5 w-5" />
                     </button>
-                    <button onClick={() => handleDelete(product.id)} className="text-gray-400 hover:text-red-600">
+                    <button onClick={() => setDeleteTarget(product)} className="text-gray-400 hover:text-red-600">
                       <Trash2 className="h-5 w-5" />
                     </button>
                   </td>
@@ -402,6 +410,50 @@ function Products() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modale : motif de retrait (alimente les statistiques) */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-1">Retirer « {deleteTarget.name} »</h2>
+            <p className="text-sm text-gray-500 mb-5">
+              Pourquoi retirez-vous ce produit ? Cela alimente vos statistiques de gaspillage.
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={() => confirmDelete('consumed')}
+                disabled={deleting}
+                className="w-full flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+              >
+                <Utensils className="h-4 w-4" /> Je l'ai consommé
+              </button>
+              <button
+                onClick={() => confirmDelete('thrown')}
+                disabled={deleting}
+                className="w-full flex items-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                <Trash2 className="h-4 w-4" /> Je l'ai jeté / il est périmé
+              </button>
+            </div>
+            <div className="flex items-center justify-between mt-4">
+              <button
+                onClick={() => confirmDelete(null)}
+                disabled={deleting}
+                className="text-xs text-gray-400 hover:text-gray-600 underline"
+              >
+                Juste le retirer (sans compter)
+              </button>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="text-sm text-gray-600 hover:text-gray-800"
+              >
+                Annuler
+              </button>
+            </div>
           </div>
         </div>
       )}

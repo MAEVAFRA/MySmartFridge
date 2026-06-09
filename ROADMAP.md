@@ -18,7 +18,7 @@
 | Colonne | Total | ✅ Terminé | 🟠 En cours | ⬜ À faire |
 |---------|:-----:|:---------:|:----------:|:---------:|
 | Initialisation Projet | 9 | 7 | 0 | 2 |
-| Ticketing (backlog) | 38 | 14 | 0 | 24 |
+| Ticketing (backlog) | 38 | 17 | 0 | 21 |
 | Sprint (1 semaine) | 2 | 0 | 0 | 2 |
 | Hugo | 6 | 6 | 0 | 0 |
 | Omar | 9 | 9 | 0 | 0 |
@@ -102,9 +102,9 @@
 - ⬜ Résumé quotidien des produits à risque par email / push
 
 **Statistiques & export**
-- ⬜ Taux de gaspillage (produits périmés / jetés)
-- ⬜ Graphiques de consommation (camembert, barres)
-- ⬜ Export CSV des données
+- ✅ Taux de gaspillage (produits périmés / jetés)
+- ✅ Graphiques de consommation (camembert, barres)
+- ✅ Export CSV des données
 
 ---
 
