@@ -29,6 +29,8 @@ exports.getAll = async (req, res) => {
 };
 
 // GET /api/products/expiring
+// Renvoie les produits déjà périmés ET ceux qui expirent dans les `days` prochains jours.
+// Les produits périmés (expires_at < maintenant) apparaissent en premier (les plus anciens d'abord).
 exports.getExpiring = async (req, res) => {
   try {
     const household_id = req.householdId;
@@ -42,8 +44,8 @@ exports.getExpiring = async (req, res) => {
         household_id,
         deleted_at: null,
         expires_at: {
+          [Op.ne]: null,
           [Op.lte]: limitDate,
-          [Op.gte]: new Date(),
         },
       },
       include: [

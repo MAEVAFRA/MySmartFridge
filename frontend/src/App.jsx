@@ -5,9 +5,11 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Products from './pages/Products'
-import Expiring from './pages/Expiring'
 import Locations from './pages/Locations'
+import ShoppingLists from './pages/ShoppingLists'
+import Expiring from './pages/Expiring'
 import Household from './pages/Household'
+import Profile from './pages/Profile'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -83,10 +85,12 @@ function App() {
         ) : <Navigate to="/login" />}
       >
         <Route index element={<Home />} />
-        <Route path="products"  element={<Products />} />
-        <Route path="expiring"  element={<Expiring />} />
+        <Route path="products" element={<Products />} />
         <Route path="locations" element={<Locations />} />
+        <Route path="shopping" element={<ShoppingLists />} />
+        <Route path="expiring" element={<Expiring />} />
         <Route path="household" element={<Household />} />
+        <Route path="profile" element={<Profile />} />
       </Route>
     </Routes>
   )

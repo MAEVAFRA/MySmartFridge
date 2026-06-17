@@ -109,6 +109,13 @@ function Products() {
     return 'text-gray-600'
   }
 
+  const isExpired = (expires_at) => {
+    if (!expires_at) return false
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return new Date(expires_at) < today
+  }
+
   const filteredProducts = products.filter((p) => {
     const matchSearch   = p.name.toLowerCase().includes(search.toLowerCase())
     const matchLocation = !filterLocation || p.location_id === parseInt(filterLocation)
@@ -193,9 +200,18 @@ function Products() {
                     </span>
                   </td>
                   <td className={`px-6 py-4 ${getExpiryColor(product.expires_at)}`}>
-                    {product.expires_at
-                      ? new Date(product.expires_at).toLocaleDateString('fr-FR')
-                      : <span className="text-gray-400">—</span>}
+                    {product.expires_at ? (
+                      <span className="inline-flex items-center gap-2">
+                        {new Date(product.expires_at).toLocaleDateString('fr-FR')}
+                        {isExpired(product.expires_at) && (
+                          <span className="text-xs font-bold uppercase bg-red-600 text-white px-2 py-0.5 rounded-full">
+                            Périmé
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-right space-x-2">
                     <button onClick={() => openModal(product)} className="text-gray-400 hover:text-primary-600">

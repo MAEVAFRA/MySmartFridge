@@ -1,46 +1,71 @@
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Edit2 } from 'lucide-react'
+import { Plus, Edit2, Trash2, MapPin, AlertTriangle, X } from 'lucide-react'
 import api from '../services/api'
 
-const LOCATION_TYPES = [
-  { value: 'fridge',  label: 'Réfrigérateur', icon: '🧊', color: '#3b82f6' },
-  { value: 'freezer', label: 'Congélateur',   icon: '❄️', color: '#06b6d4' },
-  { value: 'pantry',  label: 'Placard',        icon: '🗄️', color: '#8b5cf6' },
-  { value: 'cellar',  label: 'Cave',           icon: '🍷', color: '#dc2626' },
-  { value: 'other',   label: 'Autre',          icon: '📦', color: '#6b7280' },
+const TYPE_OPTIONS = [
+  { value: 'fridge',  label: 'Réfrigérateur', icon: '🧊' },
+  { value: 'freezer', label: 'Congélateur',   icon: '❄️' },
+  { value: 'pantry',  label: 'Placard',       icon: '🗄️' },
+  { value: 'cellar',  label: 'Cave',          icon: '🍷' },
+  { value: 'other',   label: 'Autre',         icon: '📦' },
 ]
 
-const COLORS = ['#3b82f6','#06b6d4','#8b5cf6','#dc2626','#22c55e','#f59e0b','#ec4899','#6b7280']
-const emptyForm = { name: '', type: 'fridge', icon: '🧊', color: '#3b82f6' }
+const ICON_PRESETS = ['🧊', '❄️', '🗄️', '🍷', '📦', '🧺', '🥫', '🧂', '🍽️', '🚪']
+const COLOR_PRESETS = ['#3b82f6', '#06b6d4', '#8b5cf6', '#ef4444', '#f59e0b', '#10b981', '#ec4899', '#6366f1']
 
 function Locations() {
   const [locations, setLocations] = useState([])
+  const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
-  const [editingLocation, setEditingLocation] = useState(null)
-  const [formData, setFormData] = useState(emptyForm)
   const [error, setError] = useState('')
+  const [showModal, setShowModal] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [saving, setSaving] = useState(false)
 
-  useEffect(() => { fetchLocations() }, [])
+  const emptyForm = {
+    name: '',
+    type: 'other',
+    icon: '🗄️',
+    color: '#6366f1',
+    temperature_celsius: '',
+  }
+  const [formData, setFormData] = useState(emptyForm)
 
-  const fetchLocations = async () => {
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
     try {
-      const res = await api.get('/locations')
-      setLocations(res.data)
+      const [locationsRes, productsRes] = await Promise.all([
+        api.get('/locations'),
+        api.get('/products'),
+      ])
+      setLocations(locationsRes.data)
+      setProducts(productsRes.data)
     } catch (err) {
-      console.error(err)
+      setError(err.response?.data?.message || 'Erreur de chargement')
     } finally {
       setLoading(false)
     }
   }
 
+  const countProducts = (locationId) =>
+    products.filter((p) => p.location_id === locationId).length
+
   const openModal = (location = null) => {
     setError('')
     if (location) {
-      setEditingLocation(location)
-      setFormData({ name: location.name, type: location.type, icon: location.icon, color: location.color })
+      setEditing(location)
+      setFormData({
+        name: location.name || '',
+        type: location.type || 'other',
+        icon: location.icon || '🗄️',
+        color: location.color || '#6366f1',
+        temperature_celsius: location.temperature_celsius ?? '',
+      })
     } else {
-      setEditingLocation(null)
+      setEditing(null)
       setFormData(emptyForm)
     }
     setShowModal(true)
@@ -48,147 +73,256 @@ function Locations() {
 
   const closeModal = () => {
     setShowModal(false)
-    setEditingLocation(null)
-    setFormData(emptyForm)
-    setError('')
-  }
-
-  const handleTypeChange = (type) => {
-    const preset = LOCATION_TYPES.find(t => t.value === type)
-    setFormData({ ...formData, type, icon: preset.icon, color: preset.color })
+    setEditing(null)
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!formData.name.trim()) return
+
+    setSaving(true)
     setError('')
-    if (!formData.name.trim()) { setError('Le nom est obligatoire'); return }
+    const payload = {
+      name: formData.name.trim(),
+      type: formData.type,
+      icon: formData.icon,
+      color: formData.color,
+      temperature_celsius:
+        formData.temperature_celsius === '' ? null : parseFloat(formData.temperature_celsius),
+    }
+
     try {
-      if (editingLocation) {
-        await api.put(`/locations/${editingLocation.id}`, formData)
+      if (editing) {
+        await api.put(`/locations/${editing.id}`, payload)
       } else {
-        await api.post('/locations', formData)
+        await api.post('/locations', payload)
       }
-      fetchLocations()
+      await fetchData()
       closeModal()
     } catch (err) {
-      setError(err.response?.data?.message || 'Erreur serveur')
+      setError(err.response?.data?.message || 'Erreur lors de l\'enregistrement')
+    } finally {
+      setSaving(false)
     }
   }
 
   const handleDelete = async (location) => {
-    if (!confirm(`Supprimer "${location.name}" ?`)) return
+    const count = countProducts(location.id)
+    const msg = count > 0
+      ? `Supprimer « ${location.name} » ? ${count} produit(s) seront détaché(s) de cet emplacement (ils ne seront pas supprimés).`
+      : `Supprimer l'emplacement « ${location.name} » ?`
+    if (!confirm(msg)) return
+
+    setError('')
     try {
       await api.delete(`/locations/${location.id}`)
-      fetchLocations()
+      await fetchData()
     } catch (err) {
-      console.error(err)
+      setError(err.response?.data?.message || 'Erreur lors de la suppression')
     }
   }
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-    </div>
-  )
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Mes emplacements</h1>
-          <p className="text-sm text-gray-500 mt-1">Gérez vos espaces de stockage</p>
-        </div>
-        <button onClick={() => openModal()} className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700">
-          <Plus className="h-5 w-5" /> Ajouter
+        <h1 className="text-2xl font-bold text-gray-900">Mes emplacements</h1>
+        <button
+          onClick={() => openModal()}
+          className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700"
+        >
+          <Plus className="h-5 w-5" />
+          Ajouter
         </button>
       </div>
 
+      {error && (
+        <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+          {error}
+          <button onClick={() => setError('')} className="ml-auto text-red-400 hover:text-red-600">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {locations.length === 0 ? (
         <div className="bg-white rounded-xl shadow p-12 text-center">
-          <p className="text-gray-400 text-lg mb-4">Aucun emplacement</p>
-          <button onClick={() => openModal()} className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700">
-            Créer un emplacement
+          <MapPin className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun emplacement</h3>
+          <p className="text-gray-500 mb-4">Créez votre premier emplacement pour ranger vos produits.</p>
+          <button
+            onClick={() => openModal()}
+            className="inline-flex items-center gap-2 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700"
+          >
+            <Plus className="h-5 w-5" />
+            Ajouter un emplacement
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {locations.map((loc) => (
-            <div key={loc.id} className="bg-white rounded-xl shadow p-5 border-t-4" style={{ borderTopColor: loc.color }}>
-              <div className="flex items-center justify-between">
+            <div key={loc.id} className="bg-white rounded-xl shadow p-5 flex flex-col">
+              <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="w-10 h-10 rounded-lg flex items-center justify-center text-xl" style={{ backgroundColor: loc.color + '22' }}>
+                  <div
+                    className="h-12 w-12 rounded-lg flex items-center justify-center text-2xl"
+                    style={{ backgroundColor: `${loc.color}22` }}
+                  >
                     {loc.icon}
-                  </span>
+                  </div>
                   <div>
                     <p className="font-semibold text-gray-900">{loc.name}</p>
-                    <p className="text-xs text-gray-400">{LOCATION_TYPES.find(t => t.value === loc.type)?.label}</p>
+                    <p className="text-xs text-gray-500">
+                      {TYPE_OPTIONS.find((t) => t.value === loc.type)?.label || 'Autre'}
+                      {loc.temperature_celsius != null && ` • ${loc.temperature_celsius}°C`}
+                    </p>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => openModal(loc)} className="text-gray-400 hover:text-primary-600"><Edit2 className="h-4 w-4" /></button>
-                  <button onClick={() => handleDelete(loc)} className="text-gray-400 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
-                </div>
+                <span
+                  className="h-3 w-3 rounded-full mt-1 flex-shrink-0"
+                  style={{ backgroundColor: loc.color }}
+                  title={loc.color}
+                ></span>
+              </div>
+
+              <p className="text-sm text-gray-500 mt-4">
+                {countProducts(loc.id)} produit(s)
+                {loc.is_default && (
+                  <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-primary-50 text-primary-700">
+                    Par défaut
+                  </span>
+                )}
+              </p>
+
+              <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
+                <button
+                  onClick={() => openModal(loc)}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-sm text-gray-600 hover:text-primary-600 hover:bg-gray-50 py-2 rounded-lg transition-colors"
+                >
+                  <Edit2 className="h-4 w-4" />
+                  Modifier
+                </button>
+                <button
+                  onClick={() => handleDelete(loc)}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 py-2 rounded-lg transition-colors"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Supprimer
+                </button>
               </div>
             </div>
           ))}
         </div>
       )}
 
+      {/* Modal ajout / édition */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">
-              {editingLocation ? "Modifier l'emplacement" : 'Créer un emplacement'}
+              {editing ? 'Modifier l\'emplacement' : 'Ajouter un emplacement'}
             </h2>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
-                <input type="text" placeholder="Ex: Placard cuisine 2" value={formData.name}
+                <label className="block text-sm font-medium text-gray-700">Nom *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Placard épices"
+                  value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {LOCATION_TYPES.map((t) => (
-                    <button key={t.value} type="button" onClick={() => handleTypeChange(t.value)}
-                      className={`flex flex-col items-center gap-1 p-3 rounded-lg border-2 text-xs font-medium transition-all ${
-                        formData.type === t.value ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                      }`}>
-                      <span className="text-lg">{t.icon}</span>{t.label}
+                <label className="block text-sm font-medium text-gray-700">Type</label>
+                <select
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                >
+                  {TYPE_OPTIONS.map((t) => (
+                    <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Icône</label>
+                <div className="flex flex-wrap gap-2">
+                  {ICON_PRESETS.map((ic) => (
+                    <button
+                      type="button"
+                      key={ic}
+                      onClick={() => setFormData({ ...formData, icon: ic })}
+                      className={`h-9 w-9 rounded-lg text-lg flex items-center justify-center border transition-colors ${
+                        formData.icon === ic
+                          ? 'border-primary-500 bg-primary-50'
+                          : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      {ic}
                     </button>
                   ))}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Couleur</label>
-                <div className="flex gap-2 flex-wrap">
-                  {COLORS.map((color) => (
-                    <button key={color} type="button" onClick={() => setFormData({ ...formData, color })}
-                      className={`w-8 h-8 rounded-full border-2 transition-all ${formData.color === color ? 'border-gray-800 scale-110' : 'border-transparent'}`}
-                      style={{ backgroundColor: color }} />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Couleur</label>
+                <div className="flex flex-wrap gap-2">
+                  {COLOR_PRESETS.map((c) => (
+                    <button
+                      type="button"
+                      key={c}
+                      onClick={() => setFormData({ ...formData, color: c })}
+                      className={`h-8 w-8 rounded-full border-2 transition-transform ${
+                        formData.color === c ? 'border-gray-800 scale-110' : 'border-transparent'
+                      }`}
+                      style={{ backgroundColor: c }}
+                      title={c}
+                    ></button>
                   ))}
                 </div>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-3 flex items-center gap-3">
-                <span className="w-10 h-10 rounded-lg flex items-center justify-center text-xl" style={{ backgroundColor: formData.color + '22' }}>
-                  {formData.icon}
-                </span>
-                <div>
-                  <p className="font-medium text-gray-900">{formData.name || "Nom de l'emplacement"}</p>
-                  <p className="text-xs text-gray-400">{LOCATION_TYPES.find(t => t.value === formData.type)?.label}</p>
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Température (°C) <span className="text-gray-400 font-normal">— optionnel</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  placeholder="Ex: 4"
+                  value={formData.temperature_celsius}
+                  onChange={(e) => setFormData({ ...formData, temperature_celsius: e.target.value })}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                />
               </div>
 
-              {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
-
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={closeModal} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Annuler</button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
-                  {editingLocation ? 'Modifier' : 'Créer'}
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {saving ? 'Enregistrement...' : editing ? 'Modifier' : 'Ajouter'}
                 </button>
               </div>
             </form>

@@ -36,8 +36,11 @@ services:
       JWT_SECRET: your_super_secret_key_change_this
       JWT_EXPIRES_IN: 7d
       FRONTEND_URL: http://localhost:5173
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
     restart: unless-stopped
-    command: sh -c "npm install && npm run start"
+    command: sh -c "npm install && npm run dev"
 
   frontend:
     build: ./frontend
@@ -48,6 +51,9 @@ services:
       - "5173:5173"
     environment:
       VITE_API_URL: http://localhost:3001/api
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     restart: unless-stopped
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
 

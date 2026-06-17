@@ -106,7 +106,7 @@ function Home() {
           <div className="flex items-center gap-3 mb-4">
             <AlertTriangle className="h-6 w-6 text-orange-500" />
             <h2 className="text-lg font-semibold text-orange-800">
-              {expiringProducts.length} produit(s) bientôt périmé(s)
+              {expiringProducts.length} produit(s) à surveiller
             </h2>
           </div>
 
@@ -121,7 +121,13 @@ function Home() {
                   </div>
                   <div className="text-right">
                     <p className={`text-sm font-medium ${daysLeft <= 1 ? 'text-red-600' : daysLeft <= 3 ? 'text-orange-600' : 'text-yellow-600'}`}>
-                      {daysLeft === 0 ? "Expire aujourd'hui !" : daysLeft === 1 ? 'Demain' : `Dans ${daysLeft} jours`}
+                      {daysLeft < 0
+                        ? `Périmé depuis ${-daysLeft} j`
+                        : daysLeft === 0
+                          ? "Expire aujourd'hui !"
+                          : daysLeft === 1
+                            ? 'Demain'
+                            : `Dans ${daysLeft} jours`}
                     </p>
                     <p className="text-xs text-gray-400">
                       {new Date(product.expires_at).toLocaleDateString('fr-FR')}
