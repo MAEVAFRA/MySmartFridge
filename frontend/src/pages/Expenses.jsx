@@ -1,12 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Wallet, Plus, Trash2, Edit2, X, AlertTriangle, Receipt } from 'lucide-react'
 import api from '../services/api'
-
-const CATEGORIES = ['Alimentation', 'Maison', 'Hygiène', 'Transport', 'Loisirs', 'Santé', 'Autre']
-const PAYMENT_METHODS = ['Carte', 'Espèces', 'Virement', 'Autre']
-
-const euro = (n) =>
-  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n || 0)
+import { EXPENSE_CATEGORIES, PAYMENT_METHODS, euro } from '../utils/expenses'
+import BudgetPanel from '../components/BudgetPanel'
 
 const ymd = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -30,6 +26,7 @@ function Expenses() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [period, setPeriod] = useState('current') // current | previous | all
+  const [view, setView] = useState('list') // list | budgets
 
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -131,15 +128,41 @@ function Expenses() {
           <Wallet className="h-6 w-6 text-primary-600" />
           Dépenses
         </h1>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-        >
-          <Plus className="h-4 w-4" />
-          Ajouter une dépense
-        </button>
+        {view === 'list' && (
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+          >
+            <Plus className="h-4 w-4" />
+            Ajouter une dépense
+          </button>
+        )}
       </div>
 
+      {/* Onglets Dépenses / Budgets */}
+      <div className="flex gap-1 border-b border-gray-200">
+        {[
+          { key: 'list', label: 'Dépenses' },
+          { key: 'budgets', label: 'Budgets' },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setView(key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              view === key
+                ? 'border-primary-600 text-primary-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'budgets' && <BudgetPanel />}
+
+      {view === 'list' && (
+      <>
       {error && !showModal && !deleteTarget && (
         <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 flex-shrink-0" />
@@ -324,7 +347,7 @@ function Expenses() {
                     className={inputClass}
                   >
                     <option value="">— Aucune —</option>
-                    {CATEGORIES.map((c) => (
+                    {EXPENSE_CATEGORIES.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
@@ -400,6 +423,8 @@ function Expenses() {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   )

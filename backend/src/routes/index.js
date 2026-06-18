@@ -10,6 +10,7 @@ const shoppingRoutes = require('./shopping.routes');
 const recipeRoutes = require('./recipe.routes');
 const statsRoutes = require('./stats.routes');
 const expenseRoutes = require('./expense.routes');
+const budgetRoutes = require('./budget.routes');
 
 // Routes publiques
 router.use('/auth', authRoutes);
@@ -23,6 +24,7 @@ router.use('/shopping-lists', shoppingRoutes);
 router.use('/recipes', recipeRoutes);
 router.use('/stats', statsRoutes);
 router.use('/expenses', expenseRoutes);
+router.use('/budgets', budgetRoutes);
 
 // Route de santé
 router.get('/health', (req, res) => {
