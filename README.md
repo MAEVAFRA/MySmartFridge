@@ -194,6 +194,7 @@ mysmartfridge_dev=#
 ### Prérequis
 - Docker
 - Docker Compose
+- sudo docker compose build frontend && sudo docker compose up -d (A chaque modification de code)
 
 ### Commandes docker utiles 
 
