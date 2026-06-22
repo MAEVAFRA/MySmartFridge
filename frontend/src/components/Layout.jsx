@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Outlet, NavLink, Link } from 'react-router-dom'
-import { Refrigerator, Package, MapPin, ShoppingCart, AlertTriangle, LogOut, Users, ChevronDown, Home, UserCircle, ChefHat, BarChart3, Wallet, ScanLine } from 'lucide-react'
-
+import { Refrigerator, Package, MapPin, ShoppingCart, AlertTriangle, LogOut, Users, ChevronDown, Home, UserCircle, ChefHat, BarChart3, Wallet, ScanLine, Tag } from 'lucide-react'
 function Layout({ user, households, selectedHouseholdId, onSelectHousehold, onLogout }) {
   const [showDropdown, setShowDropdown] = useState(false)
 
   const navItems = [
     { to: '/', icon: Refrigerator, label: 'Accueil' },
+    { to: '/categories', icon: Tag, label: 'Catégories' },
     { to: '/products', icon: Package, label: 'Produits' },
     { to: '/locations', icon: MapPin, label: 'Emplacements' },
     { to: '/shopping', icon: ShoppingCart, label: 'Courses' },
