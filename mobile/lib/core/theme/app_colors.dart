@@ -29,6 +29,7 @@ class AppColors {
   static const Color border = Color(0xFFE2E8F0);
   static const Color textPrimary = Color(0xFF0F172A);
   static const Color textSecondary = Color(0xFF64748B);
+  static const Color neutral400 = Color(0xFF94A3B8); // icônes / onglets inactifs
 
   // --- États ---
   static const Color success = Color(0xFF16A34A);

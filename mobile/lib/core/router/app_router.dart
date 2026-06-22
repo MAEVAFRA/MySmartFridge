@@ -7,6 +7,11 @@ import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/home/home_screen.dart';
+import '../../features/inventory/presentation/inventory_screen.dart';
+import '../../features/more/presentation/more_screen.dart';
+import '../../features/scanner/presentation/scanner_screen.dart';
+import '../../features/shell/presentation/app_shell.dart';
+import '../../features/shopping/presentation/shopping_screen.dart';
 import '../../features/splash/splash_screen.dart';
 
 const _splash = '/splash';
@@ -14,13 +19,17 @@ const _login = '/login';
 const _register = '/register';
 const _forgot = '/forgot-password';
 const _home = '/home';
+const _inventory = '/inventory';
+const _scan = '/scan';
+const _shopping = '/shopping';
+const _more = '/more';
 
 const _authRoutes = {_login, _register, _forgot};
 
 /// Routeur de l'application, piloté par l'état d'authentification.
 ///
-/// La redirection envoie l'utilisateur vers la connexion ou l'accueil selon
-/// qu'il est connecté ou non ; les onglets principaux seront ajoutés ensuite.
+/// Une fois connecté, l'utilisateur arrive dans une coquille (`AppShell`) à
+/// 5 onglets persistants (Accueil · Inventaire · Scanner · Courses · Plus).
 final goRouterProvider = Provider<GoRouter>((ref) {
   // Pont entre l'état Riverpod et le `refreshListenable` de go_router :
   // à chaque changement d'état d'auth, on relance la redirection.
@@ -70,8 +79,44 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           path: _forgot,
           name: 'forgot-password',
           builder: (_, _) => const ForgotPasswordScreen()),
-      GoRoute(
-          path: _home, name: 'home', builder: (_, _) => const HomeScreen()),
+
+      // Coquille connectée à 5 onglets persistants.
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            AppShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: _home,
+                name: 'home',
+                builder: (_, _) => const HomeScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: _inventory,
+                name: 'inventory',
+                builder: (_, _) => const InventoryScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: _scan,
+                name: 'scan',
+                builder: (_, _) => const ScannerScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: _shopping,
+                name: 'shopping',
+                builder: (_, _) => const ShoppingScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: _more,
+                name: 'more',
+                builder: (_, _) => const MoreScreen()),
+          ]),
+        ],
+      ),
     ],
   );
 });
