@@ -472,6 +472,50 @@ exports.leaveHousehold = async (req, res) => {
   }
 };
 
+// ─── PUT /api/households/:id/members/:userId/role ─────────────────
+
+exports.updateMemberRole = async (req, res) => {
+  try {
+    const householdId = req.params.id;
+    const targetUserId = req.params.userId;
+    const { role } = req.body;
+
+    const myRole = await getMemberRole(req.user.id, householdId);
+    if (!canManageMembers(myRole)) {
+      return res.status(403).json({ message: 'Vous n\'avez pas les droits pour modifier les rôles' });
+    }
+
+    const allowedRoles = ['admin', 'editor', 'viewer', 'member'];
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({ message: 'Rôle invalide' });
+    }
+
+    const targetMember = await HouseholdMember.findOne({
+      where: { user_id: targetUserId, household_id: householdId },
+    });
+    if (!targetMember) {
+      return res.status(404).json({ message: 'Membre non trouvé' });
+    }
+
+    // Le rôle du propriétaire ne se modifie pas via cette route
+    if (targetMember.role === 'owner') {
+      return res.status(403).json({ message: 'Le rôle du propriétaire ne peut pas être modifié' });
+    }
+
+    // Un admin ne peut pas modifier le rôle d'un autre admin (réservé au propriétaire)
+    if (targetMember.role === 'admin' && myRole !== 'owner') {
+      return res.status(403).json({ message: 'Seul le propriétaire peut modifier un administrateur' });
+    }
+
+    await targetMember.update({ role });
+
+    res.json({ message: 'Rôle mis à jour', member: { user_id: targetMember.user_id, role: targetMember.role } });
+  } catch (error) {
+    console.error('Erreur updateMemberRole:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
 // ─── GET /api/households/invitations/pending ──────────────────────
 
 exports.getPendingInvitations = async (req, res) => {

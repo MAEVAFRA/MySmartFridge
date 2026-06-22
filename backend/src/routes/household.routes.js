@@ -32,6 +32,9 @@ router.post('/invite/decline', householdController.declineInvitation);
 // DELETE /api/households/:id/members/:userId - Retirer un membre
 router.delete('/:id/members/:userId', householdController.removeMember);
 
+// PUT /api/households/:id/members/:userId/role - Changer le rôle d'un membre
+router.put('/:id/members/:userId/role', householdController.updateMemberRole);
+
 // POST /api/households/:id/leave - Quitter un foyer
 router.post('/:id/leave', householdController.leaveHousehold);
 

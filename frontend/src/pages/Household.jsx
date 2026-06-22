@@ -29,6 +29,7 @@ function Household() {
 
   // Sélecteur de foyer actif
   const selectedHouseholdId = parseInt(localStorage.getItem('selectedHouseholdId'), 10) || null
+  const currentUserId = JSON.parse(localStorage.getItem('user') || '{}').id
 
   useEffect(() => {
     fetchInitialData()
@@ -144,6 +145,16 @@ function Household() {
     }
   }
 
+  const handleChangeRole = async (userId, role) => {
+    setError('')
+    try {
+      await api.put(`/households/${household.id}/members/${userId}/role`, { role })
+      await fetchHouseholdDetail(household.id)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erreur lors du changement de rôle')
+    }
+  }
+
   const handleRefreshToken = async () => {
     try {
       await api.post(`/households/${household.id}/refresh-token`)
@@ -197,6 +208,14 @@ function Household() {
     if (role === 'editor') return 'bg-green-100 text-green-800'
     return 'bg-gray-100 text-gray-800'
   }
+
+  // Qui peut changer le rôle d'un membre : owner/admin, sauf le propriétaire,
+  // soi-même, et un admin ne peut pas toucher un autre admin (réservé à l'owner).
+  const canEditMemberRole = (member) =>
+    canManageMembers(household?.my_role) &&
+    member.role !== 'owner' &&
+    member.id !== currentUserId &&
+    !(household?.my_role === 'admin' && member.role === 'admin')
 
   if (loading) {
     return (
@@ -465,11 +484,25 @@ function Household() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${getRoleBadgeClass(member.role)}`}>
-                      {getRoleIcon(member.role)}
-                      {getRoleLabel(member.role)}
-                    </span>
-                    {household.my_role !== 'viewer' && member.id !== JSON.parse(localStorage.getItem('user') || '{}').id && (
+                    {canEditMemberRole(member) ? (
+                      <select
+                        value={member.role}
+                        onChange={(e) => handleChangeRole(member.id, e.target.value)}
+                        className="text-xs font-medium border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        title="Changer le rôle"
+                      >
+                        <option value="admin">Administrateur</option>
+                        <option value="editor">Éditeur</option>
+                        <option value="viewer">Lecteur</option>
+                        <option value="member">Membre</option>
+                      </select>
+                    ) : (
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${getRoleBadgeClass(member.role)}`}>
+                        {getRoleIcon(member.role)}
+                        {getRoleLabel(member.role)}
+                      </span>
+                    )}
+                    {household.my_role !== 'viewer' && member.id !== currentUserId && (
                       <button
                         onClick={() => handleRemoveMember(member.id)}
                         className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50"

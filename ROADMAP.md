@@ -19,7 +19,7 @@
 |---------|:-----:|:---------:|:----------:|:---------:|
 | Initialisation Projet | 9 | 9 | 0 | 0 |
 | Ticketing (backlog) | 39 | 27 | 0 | 12 |
-| Sprint (1 semaine) | 2 | 0 | 1 | 1 |
+| Sprint (1 semaine) | 2 | 1 | 0 | 1 |
 | Hugo | 6 | 6 | 0 | 0 |
 | Omar | 9 | 9 | 0 | 0 |
 | Maëva | 8 | 8 | 0 | 0 |
@@ -111,7 +111,7 @@
 ## ⏱️ SPRINT - 1 semaine
 
 - ⬜ Importer une photo de ticket (galerie ou caméra)
-- 🟠 Gérer les rôles (admin, editor, viewer) *(rôles assignés à l'invitation + permissions appliquées ; modification du rôle d'un membre existant à venir)*
+- ✅ Gérer les rôles (admin, editor, viewer)
 
 ---
 
