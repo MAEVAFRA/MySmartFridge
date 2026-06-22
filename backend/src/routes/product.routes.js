@@ -14,6 +14,9 @@ router.get('/', productController.getAll);
 // GET /api/products/expiring - Produits bientôt périmés
 router.get('/expiring', productController.getExpiring);
 
+// GET /api/products/barcode/:barcode - Pré-remplissage via Open Food Facts
+router.get('/barcode/:barcode', productController.lookupBarcode);
+
 // GET /api/products/:id - Détail d'un produit
 router.get('/:id', productController.getOne);
 

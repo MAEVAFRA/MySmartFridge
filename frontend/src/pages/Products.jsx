@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, Fragment } from 'react'
-import { Plus, Search, Trash2, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Utensils, Upload, Package, Image as ImageIcon, Tags, ScanLine, Camera, CheckCircle } from 'lucide-react'
+import { Plus, Search, Trash2, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Utensils, Upload, Package, Image as ImageIcon, Tags, ScanLine, ScanBarcode, Camera, CheckCircle } from 'lucide-react'
+import { BrowserMultiFormatReader } from '@zxing/browser'
 import api from '../services/api'
 import { fileToResizedDataUrl } from '../utils/image'
 import { useToast } from '../components/Toast'
@@ -34,8 +35,18 @@ function Products() {
   const fileInputRef = useRef()
   const cameraInputRef = useRef()
 
+  // ── Scan de code-barre (Open Food Facts) ──
+  const [showBarcodeModal, setShowBarcodeModal] = useState(false)
+  const [barcodeError, setBarcodeError] = useState('')
+  const [barcodeLoading, setBarcodeLoading] = useState(false)
+  const videoRef = useRef(null)
+  // true si le scan est lancé depuis le formulaire déjà ouvert (→ on complète sans écraser).
+  const scanMergeRef = useRef(false)
+
   const [formData, setFormData] = useState({
     name: '',
+    brand: '',
+    barcode: '',
     quantity: 1,
     unit: 'unité',
     expires_at: '',
@@ -70,7 +81,12 @@ function Products() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const payload = { ...formData, image_url: formData.image_url || null }
+    const payload = {
+      ...formData,
+      image_url: formData.image_url || null,
+      brand: formData.brand || null,
+      barcode: formData.barcode || null,
+    }
     try {
       if (editingProduct) {
         await api.put(`/products/${editingProduct.id}`, payload)
@@ -218,7 +234,10 @@ function Products() {
     if (product) {
       setEditingProduct(product)
       setFormData({
-        name: product.name, quantity: product.quantity,
+        name: product.name,
+        brand: product.brand || '',
+        barcode: product.barcode || '',
+        quantity: product.quantity,
         unit: product.unit || 'unité',
         expires_at: product.expires_at ? product.expires_at.slice(0, 10) : '',
         location_id: product.location_id || '',
@@ -229,7 +248,7 @@ function Products() {
     } else {
       setEditingProduct(null)
       setFormData({
-        name: '', quantity: 1, unit: 'unité', expires_at: '',
+        name: '', brand: '', barcode: '', quantity: 1, unit: 'unité', expires_at: '',
         location_id: locations[0]?.id || '', category_id: '', notes: '', image_url: '',
       })
     }
@@ -302,6 +321,84 @@ function Products() {
       setScanError('Erreur lors de l\'ajout des produits')
     }
   }
+
+  // ── Scan de code-barre → Open Food Facts → pré-remplissage du formulaire ──
+  const openBarcodeScanner = () => {
+    scanMergeRef.current = showModal // scan lancé depuis le formulaire déjà ouvert ?
+    setBarcodeError('')
+    setShowBarcodeModal(true)
+  }
+
+  const closeBarcodeScanner = () => setShowBarcodeModal(false)
+
+  const prefillFromBarcode = ({ name, brand, image_url, barcode }) => {
+    if (scanMergeRef.current) {
+      // Complète le formulaire ouvert sans écraser ce que l'utilisateur a déjà saisi.
+      setFormData((f) => ({
+        ...f,
+        name: f.name || name || '',
+        brand: f.brand || brand || '',
+        image_url: f.image_url || image_url || '',
+        barcode: barcode || f.barcode || '',
+      }))
+    } else {
+      // Démarre un nouveau produit pré-rempli.
+      setEditingProduct(null)
+      setFormData({
+        name: name || '', brand: brand || '', barcode: barcode || '',
+        quantity: 1, unit: 'unité', expires_at: '',
+        location_id: locations[0]?.id || '', category_id: '', notes: '',
+        image_url: image_url || '',
+      })
+      setShowModal(true)
+    }
+  }
+
+  const handleBarcodeDetected = async (code) => {
+    setShowBarcodeModal(false)
+    setBarcodeLoading(true)
+    try {
+      const { data } = await api.get(`/products/barcode/${code}`)
+      prefillFromBarcode({ ...data, barcode: code })
+      toast.success(`Produit reconnu : ${data.name || code}`)
+    } catch (err) {
+      if (err.response?.status === 404) {
+        prefillFromBarcode({ barcode: code })
+        toast.info('Code-barre inconnu d\'Open Food Facts — complète les infos à la main')
+      } else {
+        toast.error(err.response?.data?.message || 'Erreur lors de la recherche du produit')
+      }
+    } finally {
+      setBarcodeLoading(false)
+    }
+  }
+
+  // Démarre/arrête la caméra ZXing à l'ouverture/fermeture de la fenêtre de scan.
+  useEffect(() => {
+    if (!showBarcodeModal) return
+    let cancelled = false
+    let controls = null
+    setBarcodeError('')
+    const reader = new BrowserMultiFormatReader()
+    reader
+      .decodeFromVideoDevice(undefined, videoRef.current, (result, _err, ctrl) => {
+        if (cancelled) return
+        if (result) {
+          ctrl.stop()
+          handleBarcodeDetected(result.getText())
+        }
+      })
+      .then((ctrl) => { controls = ctrl; if (cancelled) ctrl.stop() })
+      .catch((e) => {
+        if (cancelled) return
+        setBarcodeError(
+          e?.name === 'NotAllowedError'
+            ? 'Accès à la caméra refusé. Autorise la caméra dans le navigateur puis réessaie.'
+            : "Impossible d'accéder à la caméra de cet appareil."
+        )
+      })
+    return () => { cancelled = true; if (controls) controls.stop() }
+  }, [showBarcodeModal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const getExpiryColor = (expires_at) => {
     if (!expires_at) return ''
@@ -397,6 +494,13 @@ function Products() {
           >
             <ScanLine className="h-5 w-5" />
             Scanner un ticket
+          </button>
+          <button
+            onClick={openBarcodeScanner}
+            className="flex items-center gap-2 border border-primary-600 text-primary-600 px-4 py-2 rounded-lg hover:bg-primary-50"
+          >
+            <ScanBarcode className="h-5 w-5" />
+            <span className="hidden sm:inline">Code-barre</span>
           </button>
           <button
             onClick={() => openModal()}
@@ -514,6 +618,28 @@ function Products() {
                 <input type="text" required value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Marque</label>
+                  <input type="text" value={formData.brand}
+                    onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Code-barre</label>
+                  <div className="mt-1 flex gap-2">
+                    <input type="text" inputMode="numeric" value={formData.barcode}
+                      onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                      placeholder="Scanner ou saisir"
+                      className="min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500" />
+                    <button type="button" onClick={openBarcodeScanner} title="Scanner avec la caméra"
+                      className="flex-shrink-0 px-3 border border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50">
+                      <ScanBarcode className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -864,6 +990,47 @@ function Products() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+      {showBarcodeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[55]">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <ScanBarcode className="h-5 w-5 text-primary-600" />
+                Scanner un code-barre
+              </h2>
+              <button onClick={closeBarcodeScanner} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+
+            {barcodeError ? (
+              <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm">{barcodeError}</div>
+            ) : (
+              <>
+                <div className="relative rounded-lg overflow-hidden bg-black aspect-[4/3]">
+                  <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
+                  <div className="pointer-events-none absolute inset-x-8 top-1/2 -translate-y-1/2 h-0.5 bg-red-500/80" />
+                </div>
+                <p className="mt-3 text-sm text-gray-500 text-center">
+                  Présente le code-barre du produit devant la caméra.
+                </p>
+              </>
+            )}
+
+            <button onClick={closeBarcodeScanner}
+              className="mt-4 w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
+      {barcodeLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-xl px-6 py-5 flex items-center gap-3 shadow-xl">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+            <span className="text-sm font-medium text-gray-700">Recherche du produit…</span>
           </div>
         </div>
       )}

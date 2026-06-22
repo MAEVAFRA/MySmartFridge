@@ -59,7 +59,7 @@
 - ⬜ Historique des tickets scannés
 
 **Produits & inventaire**
-- ⬜ Scanner un code-barre pour pré-remplir le formulaire
+- ✅ Scanner un code-barre pour pré-remplir le formulaire *(web via Open Food Facts ; app mobile à venir)*
 - ✅ Estimer automatiquement la péremption (configurable)
 - ✅ Trier par date de péremption / nom / quantité
 - ✅ Afficher une photo pour chaque produit

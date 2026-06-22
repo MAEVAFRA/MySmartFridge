@@ -75,6 +75,62 @@ exports.getExpiring = async (req, res) => {
   }
 };
 
+// GET /api/products/barcode/:barcode
+// Interroge Open Food Facts pour pré-remplir le formulaire produit à partir d'un
+// code-barre (EAN-8 / EAN-13 / UPC). Aucune écriture en base : on renvoie juste
+// les champs utiles au formulaire (nom, marque, photo). Endpoint partagé par le
+// front web et, plus tard, l'app mobile.
+exports.lookupBarcode = async (req, res) => {
+  const { barcode } = req.params;
+
+  if (!/^\d{6,14}$/.test(barcode)) {
+    return res.status(400).json({ message: 'Code-barre invalide' });
+  }
+
+  // Timeout pour ne pas bloquer la requête si Open Food Facts est lent/indisponible.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const fields = 'product_name,product_name_fr,brands,image_front_url,image_url,quantity';
+    const url = `https://world.openfoodfacts.org/api/v2/product/${barcode}?fields=${fields}`;
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'MySmartFridge/1.0 (projet etudiant)' },
+    });
+
+    if (!response.ok) {
+      return res.status(502).json({ message: 'Service Open Food Facts indisponible' });
+    }
+
+    const data = await response.json();
+    if (data.status !== 1 || !data.product) {
+      return res.status(404).json({ message: 'Aucun produit trouvé pour ce code-barre', barcode });
+    }
+
+    const p = data.product;
+    const name = (p.product_name_fr || p.product_name || '').trim();
+    const brand = (p.brands || '').split(',')[0].trim();
+
+    res.json({
+      barcode,
+      name,
+      brand: brand || null,
+      image_url: p.image_front_url || p.image_url || null,
+      quantity_text: p.quantity || null,
+      source: 'openfoodfacts',
+    });
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      return res.status(504).json({ message: 'Open Food Facts ne répond pas, réessayez' });
+    }
+    console.error('Erreur lookupBarcode:', error);
+    res.status(502).json({ message: 'Erreur lors de la consultation Open Food Facts', error: error.message });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 // GET /api/products/:id
 exports.getOne = async (req, res) => {
   try {
