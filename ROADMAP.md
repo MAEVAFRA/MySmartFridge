@@ -18,7 +18,7 @@
 | Colonne | Total | ✅ Terminé | 🟠 En cours | ⬜ À faire |
 |---------|:-----:|:---------:|:----------:|:---------:|
 | Initialisation Projet | 9 | 9 | 0 | 0 |
-| Ticketing (backlog) | 39 | 26 | 1 | 12 |
+| Ticketing (backlog) | 39 | 27 | 0 | 12 |
 | Sprint (1 semaine) | 2 | 0 | 1 | 1 |
 | Hugo | 6 | 6 | 0 | 0 |
 | Omar | 9 | 9 | 0 | 0 |
@@ -81,7 +81,7 @@
 - ⬜ Marquer une dette comme remboursée
 - ✅ Historique des dépenses par période (semaine/mois)
 - ✅ Budget mensuel par catégorie avec alerte de dépassement
-- 🟠 Total dépensé par période, catégorie et membre *(période & catégorie faits ; par membre à venir)*
+- ✅ Total dépensé par période, catégorie et membre
 
 **Listes de courses**
 - ✅ Créer et gérer des listes de courses partagées

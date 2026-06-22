@@ -36,6 +36,54 @@ exports.getAll = async (req, res) => {
   }
 };
 
+// GET /api/expenses/summary?from=YYYY-MM-DD&to=YYYY-MM-DD
+// Totaux de la période : global, par catégorie et par membre (qui a payé).
+exports.summary = async (req, res) => {
+  try {
+    const household_id = req.householdId;
+    const { from, to } = req.query;
+
+    const where = { household_id, deleted_at: null };
+    if (from || to) {
+      where.expense_date = {};
+      if (from) where.expense_date[Op.gte] = from;
+      if (to)   where.expense_date[Op.lte] = to;
+    }
+
+    const expenses = await Expense.findAll({ where, include: [paidByInclude] });
+
+    const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+    const catMap = new Map();
+    const memberMap = new Map();
+    let total = 0;
+
+    for (const e of expenses) {
+      const amount = parseFloat(e.amount) || 0;
+      total += amount;
+
+      const cat = e.category || 'Sans catégorie';
+      const c = catMap.get(cat) || { category: cat, total: 0, count: 0 };
+      c.total += amount;
+      c.count += 1;
+      catMap.set(cat, c);
+
+      const uid = e.paid_by;
+      const m = memberMap.get(uid) || { user_id: uid, name: e.paidBy?.name || 'Inconnu', total: 0, count: 0 };
+      m.total += amount;
+      m.count += 1;
+      memberMap.set(uid, m);
+    }
+
+    const byCategory = [...catMap.values()].map((c) => ({ ...c, total: round2(c.total) })).sort((a, b) => b.total - a.total);
+    const byMember   = [...memberMap.values()].map((m) => ({ ...m, total: round2(m.total) })).sort((a, b) => b.total - a.total);
+
+    res.json({ total: round2(total), count: expenses.length, by_category: byCategory, by_member: byMember });
+  } catch (error) {
+    console.error('Erreur summary expenses:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
 // POST /api/expenses - Enregistrer une dépense
 exports.create = async (req, res) => {
   try {

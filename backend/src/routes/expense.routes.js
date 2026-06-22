@@ -10,6 +10,9 @@ router.use(householdMiddleware);
 // GET /api/expenses - Liste des dépenses (filtres de période : from, to)
 router.get('/', expenseController.getAll);
 
+// GET /api/expenses/summary - Totaux (global, par catégorie, par membre)
+router.get('/summary', expenseController.summary);
+
 // POST /api/expenses - Enregistrer une dépense
 router.post('/', expenseController.create);
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Wallet, Plus, Trash2, Edit2, X, AlertTriangle, Receipt } from 'lucide-react'
+import { Wallet, Plus, Trash2, Edit2, X, AlertTriangle, Receipt, Users, Tag } from 'lucide-react'
 import api from '../services/api'
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS, euro } from '../utils/expenses'
 import BudgetPanel from '../components/BudgetPanel'
@@ -27,6 +27,7 @@ function Expenses() {
   const [error, setError] = useState('')
   const [period, setPeriod] = useState('current') // current | previous | all
   const [view, setView] = useState('list') // list | budgets
+  const [summary, setSummary] = useState(null)
 
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -50,8 +51,12 @@ function Expenses() {
         const { from, to } = monthRange(-1)
         query = `?from=${from}&to=${to}`
       }
-      const res = await api.get(`/expenses${query}`)
-      setExpenses(res.data)
+      const [listRes, summaryRes] = await Promise.all([
+        api.get(`/expenses${query}`),
+        api.get(`/expenses/summary${query}`),
+      ])
+      setExpenses(listRes.data)
+      setSummary(summaryRes.data)
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur de chargement des dépenses')
     } finally {
@@ -199,6 +204,32 @@ function Expenses() {
           <p className="text-2xl font-bold text-gray-900">{euro(total)}</p>
         </div>
       </div>
+
+      {/* Répartition par membre et par catégorie */}
+      {summary && expenses.length > 0 && (
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="bg-white rounded-xl shadow p-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <Users className="h-4 w-4 text-primary-600" /> Par membre
+            </h3>
+            <div className="space-y-2.5">
+              {summary.by_member.map((m) => (
+                <BreakdownRow key={m.user_id} label={m.name} value={m.total} total={summary.total} />
+              ))}
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow p-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <Tag className="h-4 w-4 text-primary-600" /> Par catégorie
+            </h3>
+            <div className="space-y-2.5">
+              {summary.by_category.map((c) => (
+                <BreakdownRow key={c.category} label={c.category} value={c.total} total={summary.total} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
@@ -426,6 +457,22 @@ function Expenses() {
       )}
       </>
       )}
+    </div>
+  )
+}
+
+// Ligne de répartition avec barre de proportion
+function BreakdownRow({ label, value, total }) {
+  const pct = total > 0 ? Math.round((value / total) * 100) : 0
+  return (
+    <div>
+      <div className="flex justify-between items-baseline text-sm mb-1 gap-2">
+        <span className="text-gray-700 truncate">{label}</span>
+        <span className="text-gray-900 font-medium whitespace-nowrap">{euro(value)} · {pct}%</span>
+      </div>
+      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div className="h-full bg-primary-500 rounded-full" style={{ width: `${pct}%` }}></div>
+      </div>
     </div>
   )
 }
