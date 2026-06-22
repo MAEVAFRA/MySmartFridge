@@ -17,9 +17,9 @@
 
 | Colonne | Total | ✅ Terminé | 🟠 En cours | ⬜ À faire |
 |---------|:-----:|:---------:|:----------:|:---------:|
-| Initialisation Projet | 9 | 7 | 0 | 2 |
-| Ticketing (backlog) | 38 | 20 | 0 | 18 |
-| Sprint (1 semaine) | 2 | 0 | 0 | 2 |
+| Initialisation Projet | 9 | 9 | 0 | 0 |
+| Ticketing (backlog) | 39 | 26 | 1 | 12 |
+| Sprint (1 semaine) | 2 | 0 | 1 | 1 |
 | Hugo | 6 | 6 | 0 | 0 |
 | Omar | 9 | 9 | 0 | 0 |
 | Maëva | 8 | 8 | 0 | 0 |
@@ -38,8 +38,8 @@
 - ✅ 5 - Rédaction du README
 - ✅ 6 - MCD
 - ✅ 7 - Documentation API
-- ⬜ 8 - User Stories
-- ⬜ 9 - Cahier des charges
+- ✅ 8 - User Stories
+- ✅ 9 - Cahier des charges
 
 ---
 
@@ -75,13 +75,13 @@
 - ✅ Historique des recettes cuisinées
 
 **Dépenses & budget partagé**
-- ⬜ Enregistrer une dépense et l'associer à un ticket
+- ✅ Enregistrer une dépense et l'associer à un ticket *(enregistrement fait ; lien vers un ticket scanné à venir avec l'OCR)*
 - ⬜ Répartir les coûts entre les membres du foyer (split)
 - ⬜ Tableau de bord des soldes (qui doit combien à qui)
 - ⬜ Marquer une dette comme remboursée
-- ⬜ Historique des dépenses par période (semaine/mois)
-- ⬜ Budget mensuel par catégorie avec alerte de dépassement
-- ⬜ Total dépensé par période, catégorie et membre
+- ✅ Historique des dépenses par période (semaine/mois)
+- ✅ Budget mensuel par catégorie avec alerte de dépassement
+- 🟠 Total dépensé par période, catégorie et membre *(période & catégorie faits ; par membre à venir)*
 
 **Listes de courses**
 - ✅ Créer et gérer des listes de courses partagées
@@ -89,10 +89,10 @@
 - ✅ Cocher les articles achetés et les transférer en stock
 
 **Foyer & collaboration**
-- ⬜ Retirer un membre ou quitter un foyer
-- ⬜ Appartenir à plusieurs foyers et switcher
+- ✅ Retirer un membre ou quitter un foyer
+- ✅ Appartenir à plusieurs foyers et switcher
 - ⬜ Synchronisation temps réel entre membres du foyer
-- ⬜ Upload d'avatar
+- ✅ Upload d'avatar
 
 **Compte utilisateur**
 - ✅ Consultation et modification du profil *(infos + changement de mot de passe)*
@@ -111,7 +111,7 @@
 ## ⏱️ SPRINT - 1 semaine
 
 - ⬜ Importer une photo de ticket (galerie ou caméra)
-- ⬜ Gérer les rôles (admin, editor, viewer)
+- 🟠 Gérer les rôles (admin, editor, viewer) *(rôles assignés à l'invitation + permissions appliquées ; modification du rôle d'un membre existant à venir)*
 
 ---
 
