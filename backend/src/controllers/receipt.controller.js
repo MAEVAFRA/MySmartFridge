@@ -9,9 +9,22 @@ const getHouseholdId = async (userId) => {
   return member.household_id;
 };
 
+const MONTH_NAMES = {
+  janvier: '01', février: '02', fevrier: '02', mars: '03', avril: '04',
+  mai: '05', juin: '06', juillet: '07', août: '08', aout: '08',
+  septembre: '09', octobre: '10', novembre: '11', décembre: '12', decembre: '12',
+};
+
+const SKIP_KEYWORDS = [
+  'total', 'tva', 'avoir', 'rendu', 'espece', 'carte', 'visa', 'cb',
+  'siret', 'tel', 'naf', 'tua', 'couvert', 'france', 'caisse',
+  'bienvenue', 'merci', 'ticket n', 'positif', 'sous-total', 'sous total',
+];
+
 const parseReceiptText = (text) => {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
+  // ─── Magasin ────────────────────────────────────────────────────
   let storeName = null;
   const storeKeywords = ['carrefour', 'leclerc', 'lidl', 'aldi', 'intermarche', 'monoprix',
     'casino', 'franprix', 'super u', 'simply', 'netto', 'picard', 'brasserie', 'restaurant'];
@@ -21,13 +34,15 @@ const parseReceiptText = (text) => {
   }
   if (!storeName && lines.length > 0) storeName = lines[0];
 
+  // ─── Total ──────────────────────────────────────────────────────
   let totalAmount = null;
-  const totalRegex = /total[^\d]*(\d+[,\.]\d{2})/i;
+  const totalRegex = /total[^\d]*(\d{1,4}[,.]\d{2})/i;
   for (const line of lines) {
     const match = line.match(totalRegex);
     if (match) { totalAmount = parseFloat(match[1].replace(',', '.')); break; }
   }
 
+  // ─── Date — format numérique JJ/MM/AAAA ────────────────────────
   let purchaseDate = null;
   const dateRegex = /(\d{2})[\/\-\.](\d{2})[\/\-\.](\d{2,4})/;
   for (const line of lines) {
@@ -36,28 +51,58 @@ const parseReceiptText = (text) => {
       const day = match[1], month = match[2];
       const year = match[3].length === 2 ? `20${match[3]}` : match[3];
       const parsed = new Date(`${year}-${month}-${day}`);
-      purchaseDate = isNaN(parsed.getTime()) ? null : `${year}-${month}-${day}`;
-      break;
+      if (!isNaN(parsed.getTime())) { purchaseDate = `${year}-${month}-${day}`; break; }
     }
   }
 
-  const items = [];
-  const skip = ['total', 'tva', 'avoir', 'rendu', 'espece', 'carte', 'visa', 'cb',
-    'siret', 'tel', 'naf', 'tua', 'couvert', 'france'];
-
-  const format1 = /^\d+x?\s+(.+?)\s+(\d+[,\.]\d{2})\s*€?\s*$/i;
-  const format2 = /^([A-ZÀ-Ü][A-ZÀ-Üa-zà-ü\s\-]+)\s{2,}(\d+[,\.]\d{2})\s*€?\s*$/;
-
-  for (const line of lines) {
-    if (skip.some(s => line.toLowerCase().includes(s))) continue;
-    let name = null, price = null;
-    const m1 = line.match(format1);
-    if (m1) { name = m1[1].trim(); price = parseFloat(m1[2].replace(',', '.')); }
-    if (!name) {
-      const m2 = line.match(format2);
-      if (m2) { name = m2[1].trim(); price = parseFloat(m2[2].replace(',', '.')); }
+  // ─── Date — format textuel "Mardi 20 novembre" (sans année) ───
+  if (!purchaseDate) {
+    const textDateRegex = /(\d{1,2})\s+(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)/i;
+    for (const line of lines) {
+      const match = line.match(textDateRegex);
+      if (match) {
+        const day = match[1].padStart(2, '0');
+        const month = MONTH_NAMES[match[2].toLowerCase()];
+        const year = new Date().getFullYear();
+        purchaseDate = `${year}-${month}-${day}`;
+        break;
+      }
     }
-    if (name && price && name.length > 2) {
+  }
+
+  // ─── Articles ───────────────────────────────────────────────────
+  // Format A : points de suite "Nom du produit . . . . . . 14,90 €"
+  const dotLeaderRegex = /^(.+?)[\s.]{2,}(\d{1,4}[,.]\d{2})\s*€?\s*$/;
+  // Format B : quantité préfixée "1x NOM 10.00 €" (tickets restaurant/autres)
+  const quantityPrefixRegex = /^\d+x?\s+(.+?)\s+(\d{1,4}[,.]\d{2})\s*€?\s*$/i;
+
+  const items = [];
+  for (const line of lines) {
+    if (SKIP_KEYWORDS.some(s => line.toLowerCase().includes(s))) continue;
+
+    let name = null, price = null;
+
+    let m = line.match(dotLeaderRegex);
+    if (m) {
+      name = m[1].trim();
+      price = parseFloat(m[2].replace(',', '.'));
+    } else {
+      m = line.match(quantityPrefixRegex);
+      if (m) {
+        name = m[1].trim();
+        price = parseFloat(m[2].replace(',', '.'));
+      }
+    }
+
+    if (name) {
+      // Nettoyer les points de suite résiduels et espaces
+      name = name.replace(/[.\s]+$/, '').trim();
+    }
+
+    // Filtrer les faux positifs : noms trop courts, purement numériques, ou prix incohérent
+    const isPlausible = name && price != null && name.length > 1 && !/^\d+$/.test(name) && price > 0 && price < 1000;
+
+    if (isPlausible) {
       items.push({ name, quantity: 1, unit: 'unité', unit_price: price, total_price: price, status: 'pending' });
     }
   }

@@ -1,109 +1,36 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-import Layout from './components/Layout'
-import Home from './pages/Home'
-import Login from './pages/Login'
-import Register from './pages/Register'
-import Products from './pages/Products'
-import Locations from './pages/Locations'
-import ShoppingLists from './pages/ShoppingLists'
-import Recipes from './pages/Recipes'
-import Stats from './pages/Stats'
-import Expenses from './pages/Expenses'
-import Expiring from './pages/Expiring'
-import Household from './pages/Household'
-import Profile from './pages/Profile'
-import Scan from './pages/Scan'
+const express = require('express');
+const router = express.Router();
 
-function App() {
-  const [user, setUser] = useState(null)
-  const [selectedHouseholdId, setSelectedHouseholdId] = useState(null)
-  const [loading, setLoading] = useState(true)
+const authRoutes = require('./auth.routes');
+const productRoutes = require('./product.routes');
+const locationRoutes = require('./location.routes');
+const categoryRoutes = require('./category.routes');
+const householdRoutes = require('./household.routes');
+const shoppingRoutes = require('./shopping.routes');
+const recipeRoutes = require('./recipe.routes');
+const statsRoutes = require('./stats.routes');
+const expenseRoutes = require('./expense.routes');
+const budgetRoutes = require('./budget.routes');
+const receiptRoutes = require('./receipt.routes');
 
-  useEffect(() => {
-    const token = localStorage.getItem('token')
-    const savedUser = localStorage.getItem('user')
-    const savedHouseholdId = localStorage.getItem('selectedHouseholdId')
+// Routes publiques
+router.use('/auth', authRoutes);
 
-    if (token && savedUser) {
-      const parsedUser = JSON.parse(savedUser)
-      setUser(parsedUser)
+// Routes protégées
+router.use('/products', productRoutes);
+router.use('/locations', locationRoutes);
+router.use('/categories', categoryRoutes);
+router.use('/households', householdRoutes);
+router.use('/shopping-lists', shoppingRoutes);
+router.use('/recipes', recipeRoutes);
+router.use('/stats', statsRoutes);
+router.use('/expenses', expenseRoutes);
+router.use('/budgets', budgetRoutes);
+router.use('/receipts', receiptRoutes);
 
-      if (savedHouseholdId) {
-        setSelectedHouseholdId(parseInt(savedHouseholdId, 10))
-      } else if (parsedUser.households?.length > 0) {
-        const firstId = parsedUser.households[0].id
-        setSelectedHouseholdId(firstId)
-        localStorage.setItem('selectedHouseholdId', firstId)
-      }
-    }
-    setLoading(false)
-  }, [])
+// Route de santé
+router.get('/health', (req, res) => {
+  res.json({ status: 'OK', message: 'MySmartFridge API is running 🧊' });
+});
 
-  const login = (userData, token) => {
-    localStorage.setItem('token', token)
-    localStorage.setItem('user', JSON.stringify(userData))
-    setUser(userData)
-    if (userData.households?.length > 0) {
-      const firstId = userData.households[0].id
-      setSelectedHouseholdId(firstId)
-      localStorage.setItem('selectedHouseholdId', firstId)
-    }
-  }
-
-  const logout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    localStorage.removeItem('selectedHouseholdId')
-    setUser(null)
-    setSelectedHouseholdId(null)
-  }
-
-  const handleSelectHousehold = (householdId) => {
-    setSelectedHouseholdId(householdId)
-    localStorage.setItem('selectedHouseholdId', householdId)
-    window.location.reload()
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    )
-  }
-
-  return (
-    <Routes>
-      <Route path="/login" element={user ? <Navigate to="/" /> : <Login onLogin={login} />} />
-      <Route path="/register" element={user ? <Navigate to="/" /> : <Register onLogin={login} />} />
-
-      <Route
-        path="/"
-        element={user ? (
-          <Layout
-            user={user}
-            households={user?.households || []}
-            selectedHouseholdId={selectedHouseholdId}
-            onSelectHousehold={handleSelectHousehold}
-            onLogout={logout}
-          />
-        ) : <Navigate to="/login" />}
-      >
-        <Route index element={<Home />} />
-        <Route path="products" element={<Products />} />
-        <Route path="locations" element={<Locations />} />
-        <Route path="shopping" element={<ShoppingLists />} />
-        <Route path="recipes" element={<Recipes />} />
-        <Route path="stats" element={<Stats />} />
-        <Route path="expenses" element={<Expenses />} />
-        <Route path="expiring" element={<Expiring />} />
-        <Route path="household" element={<Household />} />
-        <Route path="profile" element={<Profile />} />
-        <Route path="scan" element={<Scan />} />
-      </Route>
-    </Routes>
-  )
-}
-
-export default App
+module.exports = router;
