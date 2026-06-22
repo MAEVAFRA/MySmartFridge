@@ -1,34 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../core/network/api_client.dart';
 import '../../core/theme/app_colors.dart';
 
-/// Écran de démarrage.
+/// Écran de démarrage affiché pendant la lecture du token.
 ///
-/// Décidera plus tard entre l'écran de connexion et l'accueil selon la présence
-/// d'un token JWT valide. Pour l'instant, redirige toujours vers l'accueil.
-class SplashScreen extends ConsumerStatefulWidget {
+/// La navigation est gérée par le routeur selon l'état d'authentification
+/// (voir `goRouterProvider`).
+class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
-
-  @override
-  ConsumerState<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends ConsumerState<SplashScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
-  }
-
-  Future<void> _bootstrap() async {
-    // Lecture du token pour préparer le routage auth (ticket « Authentification »).
-    await ref.read(tokenStorageProvider).hasToken();
-    if (!mounted) return;
-    context.go('/home');
-  }
 
   @override
   Widget build(BuildContext context) {
