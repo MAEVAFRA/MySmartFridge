@@ -356,7 +356,7 @@ function Household() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Budget mensuel</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Budget courses mensuel</label>
                 <input
                   type="number"
                   min="0"
@@ -445,7 +445,7 @@ function Household() {
               <div>
                 <h2 className="text-xl font-bold text-gray-900">{household.name}</h2>
                 <p className="text-sm text-gray-500 mt-1">
-                  {household.members?.length || 0} membre(s) • Budget : {household.monthly_budget || '—'} {household.currency}
+                  {household.members?.length || 0} membre(s) • Budget courses : {household.monthly_budget || '—'} {household.currency}
                 </p>
               </div>
               {household.my_role !== 'viewer' && (

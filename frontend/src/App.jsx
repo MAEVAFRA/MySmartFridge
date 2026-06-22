@@ -15,6 +15,7 @@ import Expenses from './pages/Expenses'
 import Expiring from './pages/Expiring'
 import Household from './pages/Household'
 import Profile from './pages/Profile'
+import Scan from './pages/Scan'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -22,7 +23,6 @@ function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Vérifier si l'utilisateur est connecté
     const token = localStorage.getItem('token')
     const savedUser = localStorage.getItem('user')
     const savedHouseholdId = localStorage.getItem('selectedHouseholdId')
@@ -31,8 +31,6 @@ function App() {
       const parsedUser = JSON.parse(savedUser)
       setUser(parsedUser)
 
-      // Si un householdId est déjà stocké, on le garde
-      // Sinon, on prend le premier foyer disponible
       if (savedHouseholdId) {
         setSelectedHouseholdId(parseInt(savedHouseholdId, 10))
       } else if (parsedUser.households?.length > 0) {
@@ -48,8 +46,6 @@ function App() {
     localStorage.setItem('token', token)
     localStorage.setItem('user', JSON.stringify(userData))
     setUser(userData)
-
-    // Sélectionner automatiquement le premier foyer
     if (userData.households?.length > 0) {
       const firstId = userData.households[0].id
       setSelectedHouseholdId(firstId)
@@ -99,7 +95,6 @@ function App() {
         element={user ? <Navigate to="/" /> : <ResetPassword />}
       />
 
-      {/* Routes protégées */}
       <Route
         path="/"
         element={user ? (
@@ -122,6 +117,7 @@ function App() {
         <Route path="expiring" element={<Expiring />} />
         <Route path="household" element={<Household />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="scan" element={<Scan />} />
       </Route>
     </Routes>
   )
