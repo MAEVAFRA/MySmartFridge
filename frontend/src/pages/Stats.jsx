@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
-import { BarChart3, Download, Wallet, Trash2, Utensils, AlertTriangle } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { BarChart3, Download, Wallet, Trash2, Utensils, AlertTriangle, ArrowRight } from 'lucide-react'
 import api from '../services/api'
+import { useToast } from '../components/Toast'
 
 const CAT_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#64748b']
 const euro = (n) => `${(n ?? 0).toFixed(2).replace('.', ',')} €`
@@ -74,17 +76,33 @@ function MonthBars({ months }) {
   )
 }
 
-function KpiCard({ icon: Icon, label, value, sub, accent }) {
-  return (
-    <div className="bg-white rounded-xl shadow p-5">
+function KpiCard({ icon: Icon, label, value, sub, accent, to, linkLabel }) {
+  const inner = (
+    <>
       <div className="flex items-center gap-2 text-gray-500 text-sm mb-2">
         <Icon className={`h-4 w-4 ${accent || 'text-primary-600'}`} />
         {label}
       </div>
       <div className="text-2xl font-bold text-gray-900">{value}</div>
       {sub && <div className="text-xs text-gray-400 mt-1">{sub}</div>}
-    </div>
+      {to && (
+        <div className="mt-2 text-xs font-medium text-primary-600 flex items-center gap-1">
+          {linkLabel || 'Voir'} <ArrowRight className="h-3 w-3" />
+        </div>
+      )}
+    </>
   )
+  if (to) {
+    return (
+      <Link
+        to={to}
+        className="block bg-white rounded-xl shadow p-5 hover:shadow-md hover:ring-1 hover:ring-primary-200 transition-all"
+      >
+        {inner}
+      </Link>
+    )
+  }
+  return <div className="bg-white rounded-xl shadow p-5">{inner}</div>
 }
 
 function Stats() {
@@ -92,6 +110,7 @@ function Stats() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [exporting, setExporting] = useState(false)
+  const toast = useToast()
 
   useEffect(() => {
     api.get('/stats')
@@ -113,6 +132,7 @@ function Stats() {
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
+      toast.success('Export CSV téléchargé')
     } catch (err) {
       setError('Erreur lors de l\'export CSV')
     } finally {
@@ -163,13 +183,15 @@ function Stats() {
 
       {/* Indicateurs clés */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard icon={Wallet} label="Valeur du stock" value={euro(stats.stock.value)} sub={`${stats.stock.count} produit(s)`} />
+        <KpiCard icon={Wallet} label="Valeur du stock" value={euro(stats.stock.value)} sub={`${stats.stock.count} produit(s)`} to="/products" linkLabel="Voir l'inventaire" />
         <KpiCard
           icon={AlertTriangle}
           label="Périmés en stock"
           value={stats.waste.expired_in_stock_count}
           sub={`${euro(stats.waste.expired_in_stock_value)} à risque`}
           accent="text-red-500"
+          to="/expiring"
+          linkLabel="Voir les péremptions"
         />
         <KpiCard
           icon={Trash2}

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, MapPin, AlertTriangle, X } from 'lucide-react'
 import api from '../services/api'
+import { useToast } from '../components/Toast'
+import { useConfirm } from '../components/ConfirmDialog'
 
 const TYPE_OPTIONS = [
   { value: 'fridge',  label: 'Réfrigérateur', icon: '🧊' },
@@ -30,6 +32,9 @@ function Locations() {
     temperature_celsius: '',
   }
   const [formData, setFormData] = useState(emptyForm)
+
+  const toast = useToast()
+  const confirm = useConfirm()
 
   useEffect(() => {
     fetchData()
@@ -99,6 +104,7 @@ function Locations() {
       }
       await fetchData()
       closeModal()
+      toast.success(editing ? 'Emplacement modifié' : 'Emplacement créé')
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de l\'enregistrement')
     } finally {
@@ -108,15 +114,21 @@ function Locations() {
 
   const handleDelete = async (location) => {
     const count = countProducts(location.id)
-    const msg = count > 0
-      ? `Supprimer « ${location.name} » ? ${count} produit(s) seront détaché(s) de cet emplacement (ils ne seront pas supprimés).`
-      : `Supprimer l'emplacement « ${location.name} » ?`
-    if (!confirm(msg)) return
+    const message = count > 0
+      ? `${count} produit(s) seront détaché(s) de cet emplacement (ils ne seront pas supprimés).`
+      : 'Cet emplacement sera définitivement supprimé.'
+    const ok = await confirm({
+      title: `Supprimer « ${location.name} » ?`,
+      message,
+      confirmLabel: 'Supprimer',
+    })
+    if (!ok) return
 
     setError('')
     try {
       await api.delete(`/locations/${location.id}`)
       await fetchData()
+      toast.success('Emplacement supprimé')
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de la suppression')
     }

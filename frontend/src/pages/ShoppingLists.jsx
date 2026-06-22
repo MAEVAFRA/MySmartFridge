@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import {
-  ShoppingCart, Plus, Trash2, X, Check, PackagePlus, Pencil, ListChecks, CheckCircle, Boxes,
+  ShoppingCart, Plus, Trash2, X, Check, PackagePlus, Pencil, ListChecks, Boxes,
 } from 'lucide-react'
 import api from '../services/api'
+import { useToast } from '../components/Toast'
+import { useConfirm } from '../components/ConfirmDialog'
 
 const UNITS = ['unité', 'kg', 'g', 'L', 'mL', 'paquet', 'boîte', 'botte']
 
@@ -12,7 +14,8 @@ function ShoppingLists() {
   const [selectedId, setSelectedId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const toast = useToast()
+  const confirm = useConfirm()
 
   const [showNewList, setShowNewList] = useState(false)
   const [newListName, setNewListName] = useState('')
@@ -60,10 +63,7 @@ function ShoppingLists() {
     }
   }
 
-  const flashSuccess = (msg) => {
-    setSuccess(msg)
-    setTimeout(() => setSuccess(''), 4000)
-  }
+  const flashSuccess = (msg) => toast.success(msg)
 
   const selectedList = lists.find((l) => l.id === selectedId) || null
   const items = selectedList?.items || []
@@ -87,6 +87,7 @@ function ShoppingLists() {
       setShowNewList(false)
       await fetchData(false)
       setSelectedId(res.data.id)
+      toast.success('Liste créée')
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de la création')
     }
@@ -106,17 +107,24 @@ function ShoppingLists() {
       await api.put(`/shopping-lists/${selectedList.id}`, { name: renameValue.trim() })
       setRenameModal(false)
       await fetchData()
+      toast.success('Liste renommée')
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors du renommage')
     }
   }
 
   const handleDeleteList = async (list) => {
-    if (!confirm(`Supprimer la liste « ${list.name} » et tous ses articles ?`)) return
+    const ok = await confirm({
+      title: `Supprimer « ${list.name} » ?`,
+      message: 'La liste et tous ses articles seront définitivement supprimés.',
+      confirmLabel: 'Supprimer',
+    })
+    if (!ok) return
     setError('')
     try {
       await api.delete(`/shopping-lists/${list.id}`)
       await fetchData(false)
+      toast.success('Liste supprimée')
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de la suppression')
     }
@@ -134,6 +142,7 @@ function ShoppingLists() {
       })
       setItemForm({ name: '', quantity: 1, unit: 'unité' })
       await fetchData()
+      toast.success('Article ajouté')
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de l\'ajout')
     }
@@ -154,6 +163,7 @@ function ShoppingLists() {
     try {
       await api.delete(`/shopping-lists/${selectedList.id}/items/${item.id}`)
       await fetchData()
+      toast.success('Article retiré')
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur')
     }
@@ -271,16 +281,6 @@ function ShoppingLists() {
           </button>
         </div>
       )}
-      {success && (
-        <div className="bg-green-50 text-green-700 p-4 rounded-lg text-sm flex items-center gap-2">
-          <CheckCircle className="h-5 w-5 flex-shrink-0" />
-          {success}
-          <button onClick={() => setSuccess('')} className="ml-auto text-green-400 hover:text-green-600">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-
       {/* Création de liste */}
       {showNewList && (
         <form onSubmit={handleCreateList} className="bg-white rounded-xl shadow p-4 flex gap-2">

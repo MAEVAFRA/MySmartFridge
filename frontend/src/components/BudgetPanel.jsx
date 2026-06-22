@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Target, Plus, Trash2, Edit2, AlertTriangle, X } from 'lucide-react'
 import api from '../services/api'
 import { EXPENSE_CATEGORIES, euro } from '../utils/expenses'
+import { useToast } from './Toast'
 
 const emptyForm = () => ({ category: '', monthly_limit: '', alert_at_percent: 80 })
 
@@ -25,6 +26,7 @@ function BudgetPanel() {
   const [form, setForm] = useState(emptyForm())
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const toast = useToast()
 
   useEffect(() => {
     fetchBudgets()
@@ -74,6 +76,7 @@ function BudgetPanel() {
       await api.post('/budgets', form)
       setShowModal(false)
       fetchBudgets()
+      toast.success(editing ? 'Budget modifié' : 'Budget défini')
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de l\'enregistrement')
     } finally {
@@ -87,6 +90,7 @@ function BudgetPanel() {
       await api.delete(`/budgets/${deleteTarget.id}`)
       setDeleteTarget(null)
       fetchBudgets()
+      toast.success('Budget supprimé')
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de la suppression')
       setDeleteTarget(null)

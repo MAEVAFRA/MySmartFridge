@@ -4,6 +4,8 @@ import {
   RefreshCw, Home as HomeIcon, Plus, Trash2, AlertTriangle, CheckCircle, Clock
 } from 'lucide-react'
 import api from '../services/api'
+import { useToast } from '../components/Toast'
+import { useConfirm } from '../components/ConfirmDialog'
 
 function Household() {
   const [households, setHouseholds] = useState([])
@@ -30,6 +32,8 @@ function Household() {
   // Sélecteur de foyer actif
   const selectedHouseholdId = parseInt(localStorage.getItem('selectedHouseholdId'), 10) || null
   const currentUserId = JSON.parse(localStorage.getItem('user') || '{}').id
+  const toast = useToast()
+  const confirm = useConfirm()
 
   useEffect(() => {
     fetchInitialData()
@@ -80,6 +84,7 @@ function Household() {
       setInviteEmail('')
       setInviteRole('member')
       await fetchHouseholdDetail(household.id)
+      toast.success('Invitation envoyée')
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de l\'invitation')
     } finally {
@@ -93,6 +98,7 @@ function Household() {
     navigator.clipboard.writeText(link)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+    toast.success('Lien d\'invitation copié')
   }
 
   const handleAcceptInvite = async (token) => {
@@ -106,6 +112,7 @@ function Household() {
       if (newHousehold) {
         localStorage.setItem('selectedHouseholdId', newHousehold.id)
       }
+      toast.flash('Vous avez rejoint le foyer')
       window.location.reload()
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de l\'acceptation')
@@ -116,19 +123,26 @@ function Household() {
     try {
       await api.post('/households/invite/decline', { token })
       setPendingReceived((prev) => prev.filter((i) => i.token !== token))
+      toast.success('Invitation refusée')
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors du refus')
     }
   }
 
   const handleLeave = async () => {
-    if (!confirm('Voulez-vous vraiment quitter ce foyer ?')) return
+    const ok = await confirm({
+      title: 'Quitter ce foyer ?',
+      message: `Vous ne ferez plus partie de « ${household.name} » et perdrez l'accès à son contenu.`,
+      confirmLabel: 'Quitter',
+    })
+    if (!ok) return
     try {
       await api.post(`/households/${household.id}/leave`)
       // Si on quitte le foyer actif, reset le selectedHouseholdId
       if (household.id === selectedHouseholdId) {
         localStorage.removeItem('selectedHouseholdId')
       }
+      toast.flash('Vous avez quitté le foyer')
       window.location.reload()
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors du départ')
@@ -136,10 +150,16 @@ function Household() {
   }
 
   const handleRemoveMember = async (userId) => {
-    if (!confirm('Retirer ce membre du foyer ?')) return
+    const ok = await confirm({
+      title: 'Retirer ce membre ?',
+      message: 'Ce membre n\'aura plus accès au foyer.',
+      confirmLabel: 'Retirer',
+    })
+    if (!ok) return
     try {
       await api.delete(`/households/${household.id}/members/${userId}`)
       await fetchHouseholdDetail(household.id)
+      toast.success('Membre retiré')
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors du retrait')
     }
@@ -150,6 +170,7 @@ function Household() {
     try {
       await api.put(`/households/${household.id}/members/${userId}/role`, { role })
       await fetchHouseholdDetail(household.id)
+      toast.success('Rôle mis à jour')
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors du changement de rôle')
     }
@@ -159,6 +180,7 @@ function Household() {
     try {
       await api.post(`/households/${household.id}/refresh-token`)
       await fetchHouseholdDetail(household.id)
+      toast.success('Lien d\'invitation régénéré')
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de la régénération')
     }
@@ -166,6 +188,7 @@ function Household() {
 
   const handleSwitchHousehold = (householdId) => {
     localStorage.setItem('selectedHouseholdId', householdId)
+    toast.flash('Foyer changé')
     window.location.reload()
   }
 
@@ -183,6 +206,7 @@ function Household() {
       })
       // Sélectionner automatiquement le nouveau foyer
       localStorage.setItem('selectedHouseholdId', res.data.household.id)
+      toast.flash('Foyer créé')
       window.location.reload()
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de la création du foyer')

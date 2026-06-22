@@ -3,6 +3,7 @@ import { Wallet, Plus, Trash2, Edit2, X, AlertTriangle, Receipt, Users, Tag } fr
 import api from '../services/api'
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS, euro } from '../utils/expenses'
 import BudgetPanel from '../components/BudgetPanel'
+import { useToast } from '../components/Toast'
 
 const ymd = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -34,6 +35,7 @@ function Expenses() {
   const [form, setForm] = useState(emptyForm())
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const toast = useToast()
 
   useEffect(() => {
     fetchExpenses()
@@ -104,6 +106,7 @@ function Expenses() {
       }
       setShowModal(false)
       fetchExpenses()
+      toast.success(editing ? 'Dépense modifiée' : 'Dépense ajoutée')
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de l\'enregistrement')
     } finally {
@@ -117,6 +120,7 @@ function Expenses() {
       await api.delete(`/expenses/${deleteTarget.id}`)
       setDeleteTarget(null)
       fetchExpenses()
+      toast.success('Dépense supprimée')
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de la suppression')
       setDeleteTarget(null)

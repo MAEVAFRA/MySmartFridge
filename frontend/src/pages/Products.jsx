@@ -2,6 +2,7 @@ import { useState, useEffect, Fragment } from 'react'
 import { Plus, Search, Trash2, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Utensils, Upload, Package, Image as ImageIcon, Clock } from 'lucide-react'
 import api from '../services/api'
 import { fileToResizedDataUrl } from '../utils/image'
+import { useToast } from '../components/Toast'
 
 const toYmd = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -32,6 +33,8 @@ function Products() {
     notes: '',
     image_url: '',
   })
+
+  const toast = useToast()
 
   useEffect(() => {
     fetchData()
@@ -65,8 +68,10 @@ function Products() {
       }
       fetchData()
       closeModal()
+      toast.success(editingProduct ? 'Produit modifié' : 'Produit ajouté')
     } catch (error) {
       console.error('Erreur:', error)
+      toast.error('Erreur lors de l\'enregistrement du produit')
     }
   }
 
@@ -89,10 +94,17 @@ function Products() {
     setDeleting(true)
     try {
       await api.delete(`/products/${deleteTarget.id}`, reason ? { data: { reason } } : undefined)
+      const name = deleteTarget.name
       setDeleteTarget(null)
       fetchData()
+      toast.success(
+        reason === 'consumed' ? `« ${name} » marqué comme consommé`
+          : reason === 'thrown' ? `« ${name} » retiré (gaspillage)`
+          : `« ${name} » retiré du stock`
+      )
     } catch (error) {
       console.error('Erreur:', error)
+      toast.error('Erreur lors du retrait du produit')
     } finally {
       setDeleting(false)
     }
@@ -134,8 +146,10 @@ function Products() {
       await Promise.all(calls)
       setShelfModal(false)
       fetchData()
+      toast.success('Durées de conservation enregistrées')
     } catch (error) {
       console.error('Erreur:', error)
+      toast.error('Erreur lors de l\'enregistrement')
     } finally {
       setSavingShelf(false)
     }

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import {
   ChefHat, Clock, Users, Heart, Sparkles, History, Search, X, Check,
-  Flame, Star, AlertTriangle, Utensils, CheckCircle, Leaf,
+  Flame, Star, AlertTriangle, Utensils, Leaf,
 } from 'lucide-react'
 import api from '../services/api'
+import { useToast } from '../components/Toast'
 
 const DIET_LABELS = { vegetarian: 'Végétarien', vegan: 'Vegan', gluten_free: 'Sans gluten' }
 const DIFFICULTY_LABELS = { facile: 'Facile', moyen: 'Moyen', difficile: 'Difficile' }
@@ -113,7 +114,7 @@ function Recipes() {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const toast = useToast()
 
   const [filters, setFilters] = useState({ search: '', diet: '', maxTime: '', sort: 'match' })
 
@@ -122,10 +123,7 @@ function Recipes() {
   const [cookForm, setCookForm] = useState({ servings_made: '', rating: 0, notes: '', rows: [] })
   const [cooking, setCooking] = useState(false)
 
-  const flashSuccess = (msg) => {
-    setSuccess(msg)
-    setTimeout(() => setSuccess(''), 4000)
-  }
+  const flashSuccess = (msg) => toast.success(msg)
 
   useEffect(() => { fetchData() }, [activeTab])
 
@@ -178,6 +176,7 @@ function Recipes() {
       if (activeTab === 'favorites' && !next) {
         setRecipes((prev) => prev.filter((r) => r.id !== recipe.id))
       }
+      toast.success(next ? 'Ajouté aux favoris' : 'Retiré des favoris')
     } catch (err) {
       patchRecipeFavorite(recipe.id, !next) // rollback
       setError(err.response?.data?.message || 'Erreur favori')
@@ -272,14 +271,6 @@ function Recipes() {
           <button onClick={() => setError('')} className="ml-auto text-red-400 hover:text-red-600"><X className="h-4 w-4" /></button>
         </div>
       )}
-      {success && (
-        <div className="bg-green-50 text-green-700 p-4 rounded-lg text-sm flex items-center gap-2">
-          <CheckCircle className="h-5 w-5 flex-shrink-0" />
-          {success}
-          <button onClick={() => setSuccess('')} className="ml-auto text-green-400 hover:text-green-600"><X className="h-4 w-4" /></button>
-        </div>
-      )}
-
       {activeTab === 'suggestions' && (
         <p className="text-sm text-gray-500 flex items-center gap-2">
           <Leaf className="h-4 w-4 text-orange-500" />

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { User, Save, Lock, AlertTriangle, CheckCircle, X, Upload } from 'lucide-react'
 import api from '../services/api'
 import { fileToResizedDataUrl } from '../utils/image'
+import { useToast } from '../components/Toast'
 
 function Profile() {
   const [loading, setLoading] = useState(true)
@@ -16,6 +17,7 @@ function Profile() {
     name: '', email: '', avatar_url: '', dietary_preferences: '', allergies: '',
   })
   const [pw, setPw] = useState({ current_password: '', new_password: '', confirm_password: '' })
+  const toast = useToast()
 
   useEffect(() => {
     fetchProfile()
@@ -50,6 +52,7 @@ function Profile() {
       // Met à jour le user stocké pour rafraîchir l'en-tête
       const stored = JSON.parse(localStorage.getItem('user') || '{}')
       localStorage.setItem('user', JSON.stringify({ ...stored, name: u.name, email: u.email }))
+      toast.flash('Profil mis à jour')
       window.location.reload()
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de l\'enregistrement')
@@ -89,6 +92,7 @@ function Profile() {
         new_password: pw.new_password,
       })
       setPwSuccess('Mot de passe modifié avec succès')
+      toast.success('Mot de passe modifié')
       setPw({ current_password: '', new_password: '', confirm_password: '' })
     } catch (err) {
       setPwError(err.response?.data?.message || 'Erreur lors du changement de mot de passe')
