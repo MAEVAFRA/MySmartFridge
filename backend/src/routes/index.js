@@ -6,6 +6,7 @@ const productRoutes = require('./product.routes');
 const locationRoutes = require('./location.routes');
 const categoryRoutes = require('./category.routes');
 const householdRoutes = require('./household.routes');
+const shoppingRoutes = require('./shopping.routes');
 
 // Routes publiques
 router.use('/auth', authRoutes);
@@ -15,6 +16,7 @@ router.use('/products', productRoutes);
 router.use('/locations', locationRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/households', householdRoutes);
+router.use('/shopping-lists', shoppingRoutes);
 
 // Route de santé
 router.get('/health', (req, res) => {

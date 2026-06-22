@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Outlet, NavLink } from 'react-router-dom'
-import { Refrigerator, Package, AlertTriangle, LogOut, Users, ChevronDown, Home } from 'lucide-react'
+import { Outlet, NavLink, Link } from 'react-router-dom'
+import { Refrigerator, Package, MapPin, ShoppingCart, AlertTriangle, LogOut, Users, ChevronDown, Home, UserCircle } from 'lucide-react'
 
 function Layout({ user, households, selectedHouseholdId, onSelectHousehold, onLogout }) {
   const [showDropdown, setShowDropdown] = useState(false)
@@ -8,8 +8,11 @@ function Layout({ user, households, selectedHouseholdId, onSelectHousehold, onLo
   const navItems = [
     { to: '/', icon: Refrigerator, label: 'Accueil' },
     { to: '/products', icon: Package, label: 'Produits' },
+    { to: '/locations', icon: MapPin, label: 'Emplacements' },
+    { to: '/shopping', icon: ShoppingCart, label: 'Courses' },
     { to: '/expiring', icon: AlertTriangle, label: 'Péremptions' },
     { to: '/household', icon: Users, label: 'Mon foyer' },
+    { to: '/profile', icon: UserCircle, label: 'Profil' },
   ]
 
   const activeHousehold = households.find((h) => h.id === selectedHouseholdId)
@@ -77,10 +80,13 @@ function Layout({ user, households, selectedHouseholdId, onSelectHousehold, onLo
               </div>
             )}
 
-            {/* Nom utilisateur */}
-            <span className="text-sm text-gray-600 hidden sm:inline">
+            {/* Nom utilisateur → profil */}
+            <Link
+              to="/profile"
+              className="text-sm text-gray-600 hover:text-primary-600 hidden sm:inline transition-colors"
+            >
               Bonjour, {user.name || user.email}
-            </span>
+            </Link>
 
             {/* Déconnexion */}
             <button

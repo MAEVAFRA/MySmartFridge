@@ -7,10 +7,10 @@ const householdMiddleware = require('../middlewares/household.middleware');
 router.use(authMiddleware);
 router.use(householdMiddleware);
 
-// GET /api/locations - Liste des emplacements
-router.get('/', locationController.getAll);
-
-// GET /api/locations/:id - Détail avec produits
+router.get('/',    locationController.getAll);
 router.get('/:id', locationController.getOne);
+router.post('/',   locationController.create);
+router.put('/:id', locationController.update);
+router.delete('/:id', locationController.delete);
 
 module.exports = router;

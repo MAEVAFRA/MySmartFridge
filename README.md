@@ -122,8 +122,23 @@ db:reset → remet la base à zéro
 | PUT     | /api/products/:id      | Modifier         |
 | DELETE  | /api/products/:id      | Supprimer        |
 | GET     | /api/locations         | Emplacements     |
+| GET     | /api/locations/:id     | Détail + produits |
+| POST    | /api/locations         | Ajouter un emplacement |
+| PUT     | /api/locations/:id     | Modifier un emplacement |
+| DELETE  | /api/locations/:id     | Supprimer un emplacement |
 | GET     | /api/categories        | Catégories       |
 | GET     | /api/products/expiring | Produits périmés |
+| GET     | /api/shopping-lists    | Listes de courses |
+| POST    | /api/shopping-lists    | Créer une liste  |
+| PUT     | /api/shopping-lists/:id | Renommer une liste |
+| DELETE  | /api/shopping-lists/:id | Supprimer une liste |
+| POST    | /api/shopping-lists/:id/items | Ajouter un article |
+| PUT     | /api/shopping-lists/:id/items/:itemId | Modifier / cocher un article |
+| DELETE  | /api/shopping-lists/:id/items/:itemId | Retirer un article |
+| POST    | /api/shopping-lists/:id/transfer | Transférer les articles cochés en stock |
+| GET     | /api/auth/me           | Profil courant   |
+| PUT     | /api/auth/profile      | Modifier son profil |
+| PUT     | /api/auth/password     | Changer son mot de passe |
 
 ## 🗄️ Naviguer dans la BDD 
 
@@ -134,6 +149,7 @@ sudo docker compose exec postgres psql -U mysmartfridge -d mysmartfridge_dev
 
 - \dt (Voir les tables)
 - SELECT * FROM products; (Afficher les données d'une table)
+- sudo docker exec -it mysmartfridge_backend npm run db:seed (Pour dump BDD)
 
 ### Les tables de la BDD :
 
