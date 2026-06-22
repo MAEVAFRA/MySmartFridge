@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ShieldCheck, Trash2, RefreshCw } from 'lucide-react'
+import { ShieldCheck, Trash2, RefreshCw, AlertCircle } from 'lucide-react'
 import api from '../services/api'
 import { euro } from '../utils/expenses'
 
@@ -39,6 +39,14 @@ function AuditLogPanel() {
           icon: RefreshCw,
           color: 'text-green-600',
           text: `a marqué un remboursement de ${euro(data.amount)} (${data.from || '?'} → ${data.to || '?'})`,
+        }
+      }
+      if (log.action === 'reopen_debt') {
+        const data = JSON.parse(log.old_values || '{}')
+        return {
+          icon: AlertCircle,
+          color: 'text-amber-500',
+          text: `a supprimé un remboursement (« ${data.label || ''} », ${euro(data.amount)}) — la dette correspondante a été rouverte`,
         }
       }
     } catch {

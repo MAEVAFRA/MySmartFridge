@@ -201,6 +201,27 @@ exports.delete = async (req, res) => {
     });
 
     await expense.update({ deleted_at: new Date() });
+
+    // Si on supprime un remboursement, on rouvre automatiquement les dettes qu'il avait réglées
+    // (sans ça, la dette resterait marquée "réglée" alors que la preuve de paiement n'existe plus)
+    if (expense.category === 'Remboursement') {
+      const reopened = await ExpenseSplit.update(
+        { settled: false, settled_at: null, settled_by: null, settled_via_expense_id: null },
+        { where: { settled_via_expense_id: expense.id } }
+      );
+
+      if (reopened[0] > 0) {
+        await AuditLog.create({
+          user_id: req.user.id,
+          household_id,
+          action: 'reopen_debt',
+          entity_type: 'Expense',
+          entity_id: String(expense.id),
+          old_values: JSON.stringify({ label: expense.label, amount: expense.amount, splits_reopened: reopened[0] }),
+        });
+      }
+    }
+
     res.json({ message: 'Dépense supprimée' });
   } catch (error) {
     console.error('Erreur delete expense:', error);
@@ -216,23 +237,30 @@ exports.getBalances = async (req, res) => {
     const household_id = req.householdId;
     const membersMap = await getHouseholdMembersMap(household_id);
 
-    const splits = await ExpenseSplit.findAll({
-      where: { settled: false },
-      include: [{
-        model: Expense,
-        where: { household_id, deleted_at: null },
-        attributes: ['id', 'paid_by', 'amount', 'label'],
-      }],
+    // 1. Dépenses ACTIVES du foyer uniquement (les supprimées sont explicitement exclues ici)
+    const activeExpenses = await Expense.findAll({
+      where: { household_id, deleted_at: null },
+      attributes: ['id', 'paid_by'],
     });
+    const activeExpenseIds = activeExpenses.map((e) => e.id);
+    const payerByExpenseId = {};
+    activeExpenses.forEach((e) => { payerByExpenseId[e.id] = e.paid_by; });
+
+    // 2. Parts non réglées, filtrées explicitement sur ces dépenses actives uniquement
+    const splits = activeExpenseIds.length > 0
+      ? await ExpenseSplit.findAll({
+          where: { settled: false, expense_id: { [Op.in]: activeExpenseIds } },
+        })
+      : [];
 
     // Balance nette par membre : positif = on lui doit de l'argent, négatif = il doit de l'argent
     const balances = {};
     Object.keys(membersMap).forEach((id) => { balances[id] = 0; });
 
     splits.forEach((split) => {
-      const payer = split.Expense.paid_by;
+      const payer = payerByExpenseId[split.expense_id];
       const ower = split.user_id;
-      if (ower === payer) return;
+      if (!payer || ower === payer) return;
       balances[ower] = Math.round(((balances[ower] || 0) - split.share_amount) * 100) / 100;
       balances[payer] = Math.round(((balances[payer] || 0) + split.share_amount) * 100) / 100;
     });
@@ -289,13 +317,27 @@ exports.settleBetween = async (req, res) => {
     const { user_a, user_b } = req.body;
     if (!user_a || !user_b) return res.status(400).json({ message: 'user_a et user_b sont requis' });
 
-    const splits = await ExpenseSplit.findAll({
-      where: { settled: false, user_id: { [Op.in]: [user_a, user_b] } },
-      include: [{ model: Expense, where: { household_id, deleted_at: null }, attributes: ['id', 'paid_by'] }],
+    // Dépenses ACTIVES uniquement (les supprimées sont explicitement exclues ici)
+    const activeExpenses = await Expense.findAll({
+      where: { household_id, deleted_at: null },
+      attributes: ['id', 'paid_by'],
     });
+    const activeExpenseIds = activeExpenses.map((e) => e.id);
+    const payerByExpenseId = {};
+    activeExpenses.forEach((e) => { payerByExpenseId[e.id] = e.paid_by; });
+
+    const splits = activeExpenseIds.length > 0
+      ? await ExpenseSplit.findAll({
+          where: {
+            settled: false,
+            user_id: { [Op.in]: [user_a, user_b] },
+            expense_id: { [Op.in]: activeExpenseIds },
+          },
+        })
+      : [];
 
     const toSettle = splits.filter((s) => {
-      const payer = s.Expense.paid_by;
+      const payer = payerByExpenseId[s.expense_id];
       const ower = s.user_id;
       return (payer === Number(user_a) && ower === Number(user_b)) ||
              (payer === Number(user_b) && ower === Number(user_a));
@@ -304,7 +346,7 @@ exports.settleBetween = async (req, res) => {
     // Montant net réellement remboursé par user_a à user_b sur ces dépenses précises
     let netAmount = 0;
     toSettle.forEach((s) => {
-      const payer = s.Expense.paid_by;
+      const payer = payerByExpenseId[s.expense_id];
       if (payer === Number(user_b)) {
         netAmount += s.share_amount; // user_b a payé, user_a lui doit sa part
       } else {
@@ -313,9 +355,7 @@ exports.settleBetween = async (req, res) => {
     });
     netAmount = Math.round(netAmount * 100) / 100;
 
-    await Promise.all(toSettle.map((s) => s.update({ settled: true, settled_at: new Date(), settled_by: req.user.id })));
-
-    // Créer une dépense "Remboursement" visible dans l'historique (pas juste un flag invisible)
+    // Créer la dépense "Remboursement" D'ABORD, pour pouvoir lier les parts réglées à elle
     let reimbursement = null;
     if (netAmount > 0) {
       const debtor = await User.findByPk(user_a, { attributes: ['id', 'name'] });
@@ -340,6 +380,14 @@ exports.settleBetween = async (req, res) => {
         new_values: JSON.stringify({ from: debtor?.name, to: creditor?.name, amount: netAmount }),
       });
     }
+
+    // Marquer les parts comme réglées, en les liant au remboursement créé
+    await Promise.all(toSettle.map((s) => s.update({
+      settled: true,
+      settled_at: new Date(),
+      settled_by: req.user.id,
+      settled_via_expense_id: reimbursement?.id || null,
+    })));
 
     res.json({
       message: `${toSettle.length} dépense(s) marquée(s) comme réglée(s)`,
