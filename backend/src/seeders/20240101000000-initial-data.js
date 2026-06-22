@@ -77,18 +77,18 @@ module.exports = {
 
     // ─── PRODUCT CATEGORIES ───────────────────────────────────────
     await queryInterface.bulkInsert('product_categories', [
-      { name: 'Légumes',           icon: '🥦', color: '#22c55e', avg_shelf_days: 7,   avg_shelf_days_opened: 3,  avg_shelf_days_freezer: 180, is_system: true, created_at: new Date() },
-      { name: 'Fruits',            icon: '🍎', color: '#f97316', avg_shelf_days: 5,   avg_shelf_days_opened: 3,  avg_shelf_days_freezer: 180, is_system: true, created_at: new Date() },
-      { name: 'Viande',            icon: '🥩', color: '#ef4444', avg_shelf_days: 4,   avg_shelf_days_opened: 2,  avg_shelf_days_freezer: 90,  is_system: true, created_at: new Date() },
-      { name: 'Poisson',           icon: '🐟', color: '#3b82f6', avg_shelf_days: 3,   avg_shelf_days_opened: 1,  avg_shelf_days_freezer: 90,  is_system: true, created_at: new Date() },
-      { name: 'Produits laitiers', icon: '🥛', color: '#e2e8f0', avg_shelf_days: 14,  avg_shelf_days_opened: 5,  avg_shelf_days_freezer: 30,  is_system: true, created_at: new Date() },
-      { name: 'Boissons',          icon: '🥤', color: '#06b6d4', avg_shelf_days: 30,  avg_shelf_days_opened: 7,  avg_shelf_days_freezer: null,is_system: true, created_at: new Date() },
-      { name: 'Épicerie',          icon: '🫙', color: '#8b5cf6', avg_shelf_days: 180, avg_shelf_days_opened: 30, avg_shelf_days_freezer: null,is_system: true, created_at: new Date() },
-      { name: 'Condiments',        icon: '🧂', color: '#f59e0b', avg_shelf_days: 365, avg_shelf_days_opened: 90, avg_shelf_days_freezer: null,is_system: true, created_at: new Date() },
-      { name: 'Surgelés',          icon: '❄️', color: '#67e8f9', avg_shelf_days: 90,  avg_shelf_days_opened: null, avg_shelf_days_freezer: 90, is_system: true, created_at: new Date() },
-      { name: 'Boulangerie',       icon: '🍞', color: '#d97706', avg_shelf_days: 3,   avg_shelf_days_opened: 2,  avg_shelf_days_freezer: 60,  is_system: true, created_at: new Date() },
-      { name: 'Autre',             icon: '📦', color: '#6b7280', avg_shelf_days: 30,  avg_shelf_days_opened: 14, avg_shelf_days_freezer: 60,  is_system: true, created_at: new Date() },
-    ]);
+  { name: 'Légumes',           icon: '🥦', color: '#22c55e', avg_shelf_days: 5,   avg_shelf_days_freezer: 60,  is_system: true, created_at: new Date() },
+  { name: 'Fruits',            icon: '🍎', color: '#f97316', avg_shelf_days: 5,   avg_shelf_days_freezer: 60,  is_system: true, created_at: new Date() },
+  { name: 'Viande',            icon: '🥩', color: '#ef4444', avg_shelf_days: 5,   avg_shelf_days_freezer: 60,  is_system: true, created_at: new Date() },
+  { name: 'Poisson',           icon: '🐟', color: '#3b82f6', avg_shelf_days: 5,   avg_shelf_days_freezer: 60,  is_system: true, created_at: new Date() },
+  { name: 'Produits laitiers', icon: '🥛', color: '#e2e8f0', avg_shelf_days: 5,   avg_shelf_days_freezer: 60,  is_system: true, created_at: new Date() },
+  { name: 'Boissons',          icon: '🥤', color: '#06b6d4', avg_shelf_days: 180, avg_shelf_days_freezer: null,is_system: true, created_at: new Date() },
+  { name: 'Épicerie',          icon: '🫙', color: '#8b5cf6', avg_shelf_days: 180, avg_shelf_days_freezer: null,is_system: true, created_at: new Date() },
+  { name: 'Condiments',        icon: '🧂', color: '#f59e0b', avg_shelf_days: 180, avg_shelf_days_freezer: null,is_system: true, created_at: new Date() },
+  { name: 'Surgelés',          icon: '❄️', color: '#67e8f9', avg_shelf_days: 2,   avg_shelf_days_freezer: 90,  is_system: true, created_at: new Date() },
+  { name: 'Boulangerie',       icon: '🍞', color: '#d97706', avg_shelf_days: 5,   avg_shelf_days_freezer: 60,  is_system: true, created_at: new Date() },
+  { name: 'Autre',             icon: '📦', color: '#6b7280', avg_shelf_days: null,avg_shelf_days_freezer: null,is_system: true, created_at: new Date() },
+]);
 
     const cats = await queryInterface.sequelize.query(
       "SELECT id, name FROM product_categories ORDER BY id ASC",

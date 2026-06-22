@@ -10,14 +10,14 @@ router.use(householdMiddleware);
 // GET /api/expenses - Liste des dépenses (filtres de période : from, to)
 router.get('/', expenseController.getAll);
 
-// GET /api/expenses/summary - Totaux (global, par catégorie, par membre)
-router.get('/summary', expenseController.summary);
+// GET /api/expenses/balances - Qui doit quoi à qui (façon Tricount)
+router.get('/balances', expenseController.getBalances);
 
-// GET /api/expenses/balances - Soldes du foyer (qui doit combien à qui)
-router.get('/balances', expenseController.balances);
+// GET /api/expenses/audit-log - Historique des suppressions et règlements (anti-fraude)
+router.get('/audit-log', expenseController.getAuditLog);
 
-// POST /api/expenses/settle - Marquer une dette réglée entre deux membres
-router.post('/settle', expenseController.settle);
+// POST /api/expenses/settle - Marquer une relation comme réglée
+router.post('/settle', expenseController.settleBetween);
 
 // POST /api/expenses - Enregistrer une dépense
 router.post('/', expenseController.create);

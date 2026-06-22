@@ -27,15 +27,18 @@ module.exports.Expense = (sequelize) => {
 
 module.exports.ExpenseSplit = (sequelize) => {
   return sequelize.define('ExpenseSplit', {
-    id:            { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    expense_id:    { type: DataTypes.INTEGER, allowNull: false },
-    user_id:       { type: DataTypes.INTEGER, allowNull: false },
-    share_amount:  { type: DataTypes.FLOAT },
-    share_percent: { type: DataTypes.FLOAT },
-    settled:       { type: DataTypes.BOOLEAN, defaultValue: false },
-    settled_at:    { type: DataTypes.DATE },
-    settled_by:    { type: DataTypes.INTEGER },
-    note:          { type: DataTypes.STRING(300) },
+    id:                     { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    expense_id:             { type: DataTypes.INTEGER, allowNull: false },
+    user_id:                { type: DataTypes.INTEGER, allowNull: false },
+    share_amount:           { type: DataTypes.FLOAT },
+    share_percent:          { type: DataTypes.FLOAT },
+    settled:                { type: DataTypes.BOOLEAN, defaultValue: false },
+    settled_at:             { type: DataTypes.DATE },
+    settled_by:             { type: DataTypes.INTEGER },
+    // Référence vers la dépense "Remboursement" qui a réglé cette part.
+    // Permet de rouvrir automatiquement la dette si ce remboursement est supprimé.
+    settled_via_expense_id: { type: DataTypes.INTEGER, allowNull: true },
+    note:                   { type: DataTypes.STRING(300) },
   }, { tableName: 'expense_splits', timestamps: false });
 };
 

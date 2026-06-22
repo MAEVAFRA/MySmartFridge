@@ -1,36 +1,56 @@
 const { Op } = require('sequelize');
-const { Expense, User, ExpenseSplit, HouseholdMember } = require('../models');
+const { Expense, ExpenseSplit, User, HouseholdMember, AuditLog } = require('../models');
 
 const paidByInclude = { model: User, as: 'paidBy', attributes: ['id', 'name', 'email'] };
-const splitInclude = { model: ExpenseSplit, as: 'splits', include: [{ model: User, attributes: ['id', 'name'] }] };
 
-const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
-
-// Valide un montant et renvoie le nombre, ou null si invalide.
 const parseAmount = (value) => {
   const n = parseFloat(value);
   return Number.isFinite(n) && n > 0 ? n : null;
 };
 
-// Crée les parts d'une dépense depuis [{ user_id, share_amount }], en ne gardant
-// que les membres réels du foyer et les montants valides (>= 0).
-const createSplits = async (expense, splits, householdId) => {
-  if (!Array.isArray(splits) || splits.length === 0) return;
-  const members = await HouseholdMember.findAll({ where: { household_id: householdId } });
-  const memberIds = new Set(members.map((m) => m.user_id));
-  const rows = [];
-  for (const s of splits) {
-    const uid = parseInt(s.user_id, 10);
-    const amt = parseFloat(s.share_amount);
-    if (memberIds.has(uid) && Number.isFinite(amt) && amt >= 0) {
-      rows.push({ expense_id: expense.id, user_id: uid, share_amount: round2(amt) });
-    }
+// Récupère les membres du foyer (id, name, email) — utilisé pour valider les participants
+const getHouseholdMembersMap = async (household_id) => {
+  const members = await HouseholdMember.findAll({ where: { household_id } });
+  const userIds = members.map((m) => m.user_id);
+  const users = await User.findAll({ where: { id: { [Op.in]: userIds } }, attributes: ['id', 'name', 'email'] });
+  const map = {};
+  users.forEach((u) => { map[u.id] = u; });
+  return map;
+};
+
+// Crée les ExpenseSplit pour une dépense donnée, selon le type de partage demandé.
+// split_type: 'none' (pas de partage) | 'equal' (parts égales) | 'custom' (montants choisis)
+const createSplits = async (expense, split_type, participants, custom_shares, payerId) => {
+  if (split_type === 'equal' && Array.isArray(participants) && participants.length > 0) {
+    const base = Math.floor((expense.amount / participants.length) * 100) / 100;
+    const shares = participants.map(() => base);
+    const distributed = Math.round(base * participants.length * 100) / 100;
+    const remainder = Math.round((expense.amount - distributed) * 100) / 100;
+    shares[shares.length - 1] = Math.round((shares[shares.length - 1] + remainder) * 100) / 100;
+
+    await ExpenseSplit.bulkCreate(
+      participants.map((user_id, i) => ({
+        expense_id: expense.id,
+        user_id,
+        share_amount: shares[i],
+        settled: Number(user_id) === Number(payerId), // le payeur ne se doit rien à lui-même
+      }))
+    );
+  } else if (split_type === 'custom' && custom_shares && typeof custom_shares === 'object') {
+    const entries = Object.entries(custom_shares).filter(([, v]) => parseFloat(v) > 0);
+    await ExpenseSplit.bulkCreate(
+      entries.map(([user_id, share_amount]) => ({
+        expense_id: expense.id,
+        user_id: Number(user_id),
+        share_amount: Math.round(parseFloat(share_amount) * 100) / 100,
+        settled: Number(user_id) === Number(payerId),
+      }))
+    );
   }
-  if (rows.length) await ExpenseSplit.bulkCreate(rows);
+  // split_type === 'none' → dépense personnelle, aucune part créée
 };
 
 // GET /api/expenses?from=YYYY-MM-DD&to=YYYY-MM-DD
-// Liste les dépenses du foyer, avec filtre de période optionnel sur expense_date.
 exports.getAll = async (req, res) => {
   try {
     const household_id = req.householdId;
@@ -45,79 +65,52 @@ exports.getAll = async (req, res) => {
 
     const expenses = await Expense.findAll({
       where,
-      include: [paidByInclude, splitInclude],
+      include: [paidByInclude, { model: ExpenseSplit, as: 'splits' }],
       order: [['expense_date', 'DESC'], ['created_at', 'DESC']],
     });
 
-    res.json(expenses);
+    // Enrichir les splits avec le nom de l'utilisateur (sans dépendre d'une association User déjà définie)
+    const membersMap = await getHouseholdMembersMap(household_id);
+    const enriched = expenses.map((e) => {
+      const json = e.toJSON();
+      json.splits = (json.splits || []).map((s) => ({ ...s, user: membersMap[s.user_id] || null }));
+      return json;
+    });
+
+    res.json(enriched);
   } catch (error) {
     console.error('Erreur getAll expenses:', error);
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }
 };
 
-// GET /api/expenses/summary?from=YYYY-MM-DD&to=YYYY-MM-DD
-// Totaux de la période : global, par catégorie et par membre (qui a payé).
-exports.summary = async (req, res) => {
-  try {
-    const household_id = req.householdId;
-    const { from, to } = req.query;
-
-    const where = { household_id, deleted_at: null };
-    if (from || to) {
-      where.expense_date = {};
-      if (from) where.expense_date[Op.gte] = from;
-      if (to)   where.expense_date[Op.lte] = to;
-    }
-
-    const expenses = await Expense.findAll({ where, include: [paidByInclude] });
-
-    const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
-    const catMap = new Map();
-    const memberMap = new Map();
-    let total = 0;
-
-    for (const e of expenses) {
-      const amount = parseFloat(e.amount) || 0;
-      total += amount;
-
-      const cat = e.category || 'Sans catégorie';
-      const c = catMap.get(cat) || { category: cat, total: 0, count: 0 };
-      c.total += amount;
-      c.count += 1;
-      catMap.set(cat, c);
-
-      const uid = e.paid_by;
-      const m = memberMap.get(uid) || { user_id: uid, name: e.paidBy?.name || 'Inconnu', total: 0, count: 0 };
-      m.total += amount;
-      m.count += 1;
-      memberMap.set(uid, m);
-    }
-
-    const byCategory = [...catMap.values()].map((c) => ({ ...c, total: round2(c.total) })).sort((a, b) => b.total - a.total);
-    const byMember   = [...memberMap.values()].map((m) => ({ ...m, total: round2(m.total) })).sort((a, b) => b.total - a.total);
-
-    res.json({ total: round2(total), count: expenses.length, by_category: byCategory, by_member: byMember });
-  } catch (error) {
-    console.error('Erreur summary expenses:', error);
-    res.status(500).json({ message: 'Erreur serveur', error: error.message });
-  }
-};
-
-// POST /api/expenses - Enregistrer une dépense
+// POST /api/expenses
 exports.create = async (req, res) => {
   try {
     const household_id = req.householdId;
-    const { amount, label, category, store_name, payment_method, expense_date, currency, splits } = req.body;
+    const {
+      amount, label, category, store_name, payment_method, expense_date, currency,
+      split_type, participants, custom_shares,
+    } = req.body;
 
     const value = parseAmount(amount);
     if (value === null) {
       return res.status(400).json({ message: 'Le montant doit être un nombre positif' });
     }
 
+    const payerId = req.body.paid_by ? Number(req.body.paid_by) : req.user.id;
+
+    // Validation du partage personnalisé : la somme doit correspondre au montant total
+    if (split_type === 'custom' && custom_shares) {
+      const sum = Object.values(custom_shares).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+      if (Math.abs(sum - value) > 0.02) {
+        return res.status(400).json({ message: `La somme des parts (${sum.toFixed(2)} €) ne correspond pas au montant total (${value.toFixed(2)} €)` });
+      }
+    }
+
     const expense = await Expense.create({
       household_id,
-      paid_by: req.user.id,
+      paid_by: payerId,
       amount: value,
       currency: currency || 'EUR',
       label: label?.trim() || null,
@@ -127,9 +120,11 @@ exports.create = async (req, res) => {
       expense_date: expense_date || new Date(),
     });
 
-    await createSplits(expense, splits, household_id);
+    await createSplits(expense, split_type, participants, custom_shares, payerId);
 
-    const full = await Expense.findByPk(expense.id, { include: [paidByInclude, splitInclude] });
+    const full = await Expense.findByPk(expense.id, {
+      include: [paidByInclude, { model: ExpenseSplit, as: 'splits' }],
+    });
     res.status(201).json(full);
   } catch (error) {
     console.error('Erreur create expense:', error);
@@ -137,7 +132,7 @@ exports.create = async (req, res) => {
   }
 };
 
-// PUT /api/expenses/:id - Modifier une dépense
+// PUT /api/expenses/:id
 exports.update = async (req, res) => {
   try {
     const household_id = req.householdId;
@@ -147,14 +142,15 @@ exports.update = async (req, res) => {
     });
     if (!expense) return res.status(404).json({ message: 'Dépense non trouvée' });
 
-    const { amount, label, category, store_name, payment_method, expense_date, currency } = req.body;
-    const updates = {};
+    const {
+      amount, label, category, store_name, payment_method, expense_date, currency,
+      split_type, participants, custom_shares,
+    } = req.body;
 
+    const updates = {};
     if (amount !== undefined) {
       const value = parseAmount(amount);
-      if (value === null) {
-        return res.status(400).json({ message: 'Le montant doit être un nombre positif' });
-      }
+      if (value === null) return res.status(400).json({ message: 'Le montant doit être un nombre positif' });
       updates.amount = value;
     }
     if (label !== undefined)          updates.label = label?.trim() || null;
@@ -163,16 +159,19 @@ exports.update = async (req, res) => {
     if (payment_method !== undefined) updates.payment_method = payment_method || null;
     if (expense_date !== undefined)   updates.expense_date = expense_date || null;
     if (currency !== undefined)       updates.currency = currency || 'EUR';
+    if (req.body.paid_by !== undefined) updates.paid_by = Number(req.body.paid_by);
 
     await expense.update(updates);
 
-    // Remplace les parts si le champ splits est fourni (tableau, éventuellement vide)
-    if (req.body.splits !== undefined) {
+    // Si un nouveau partage est fourni, on remplace entièrement les anciennes parts
+    if (split_type !== undefined) {
       await ExpenseSplit.destroy({ where: { expense_id: expense.id } });
-      await createSplits(expense, req.body.splits, household_id);
+      await createSplits(expense, split_type, participants, custom_shares, expense.paid_by);
     }
 
-    const updated = await Expense.findByPk(expense.id, { include: [paidByInclude, splitInclude] });
+    const updated = await Expense.findByPk(expense.id, {
+      include: [paidByInclude, { model: ExpenseSplit, as: 'splits' }],
+    });
     res.json(updated);
   } catch (error) {
     console.error('Erreur update expense:', error);
@@ -180,17 +179,49 @@ exports.update = async (req, res) => {
   }
 };
 
-// DELETE /api/expenses/:id - Supprimer une dépense (soft delete)
+// DELETE /api/expenses/:id
 exports.delete = async (req, res) => {
   try {
     const household_id = req.householdId;
 
     const expense = await Expense.findOne({
       where: { id: req.params.id, household_id, deleted_at: null },
+      include: [{ model: ExpenseSplit, as: 'splits' }],
     });
     if (!expense) return res.status(404).json({ message: 'Dépense non trouvée' });
 
+    // Trace anti-fraude : on garde une copie complète de la dépense avant suppression
+    await AuditLog.create({
+      user_id: req.user.id,
+      household_id,
+      action: 'delete_expense',
+      entity_type: 'Expense',
+      entity_id: String(expense.id),
+      old_values: JSON.stringify(expense.toJSON()),
+    });
+
     await expense.update({ deleted_at: new Date() });
+
+    // Si on supprime un remboursement, on rouvre automatiquement les dettes qu'il avait réglées
+    // (sans ça, la dette resterait marquée "réglée" alors que la preuve de paiement n'existe plus)
+    if (expense.category === 'Remboursement') {
+      const reopened = await ExpenseSplit.update(
+        { settled: false, settled_at: null, settled_by: null, settled_via_expense_id: null },
+        { where: { settled_via_expense_id: expense.id } }
+      );
+
+      if (reopened[0] > 0) {
+        await AuditLog.create({
+          user_id: req.user.id,
+          household_id,
+          action: 'reopen_debt',
+          entity_type: 'Expense',
+          entity_id: String(expense.id),
+          old_values: JSON.stringify({ label: expense.label, amount: expense.amount, splits_reopened: reopened[0] }),
+        });
+      }
+    }
+
     res.json({ message: 'Dépense supprimée' });
   } catch (error) {
     console.error('Erreur delete expense:', error);
@@ -198,109 +229,199 @@ exports.delete = async (req, res) => {
   }
 };
 
-// GET /api/expenses/balances
-// Soldes du foyer à partir des parts NON réglées : solde net par membre +
-// dettes nettes par paire (qui doit combien à qui).
-exports.balances = async (req, res) => {
+// ─────────────────────────────────────────────────────────────────
+// GET /api/expenses/balances — qui doit quoi à qui (façon Tricount)
+// ─────────────────────────────────────────────────────────────────
+exports.getBalances = async (req, res) => {
   try {
     const household_id = req.householdId;
+    const membersMap = await getHouseholdMembersMap(household_id);
 
-    const members = await HouseholdMember.findAll({
-      where: { household_id },
-      include: [{ model: User, attributes: ['id', 'name'] }],
+    // 1. Dépenses ACTIVES du foyer uniquement (les supprimées sont explicitement exclues ici)
+    const activeExpenses = await Expense.findAll({
+      where: { household_id, deleted_at: null },
+      attributes: ['id', 'paid_by'],
     });
-    const nameOf = new Map(members.map((m) => [m.user_id, m.User?.name || 'Membre']));
-    const memberIds = members.map((m) => m.user_id);
+    const activeExpenseIds = activeExpenses.map((e) => e.id);
+    const payerByExpenseId = {};
+    activeExpenses.forEach((e) => { payerByExpenseId[e.id] = e.paid_by; });
 
-    // Parts non réglées des dépenses (non supprimées) du foyer
-    const splits = await ExpenseSplit.findAll({
-      where: { settled: false },
-      include: [{
-        model: Expense,
-        attributes: ['id', 'paid_by'],
-        where: { household_id, deleted_at: null },
-        required: true,
-      }],
+    // 2. Parts non réglées, filtrées explicitement sur ces dépenses actives uniquement
+    const splits = activeExpenseIds.length > 0
+      ? await ExpenseSplit.findAll({
+          where: { settled: false, expense_id: { [Op.in]: activeExpenseIds } },
+        })
+      : [];
+
+    // Balance nette par membre : positif = on lui doit de l'argent, négatif = il doit de l'argent
+    const balances = {};
+    Object.keys(membersMap).forEach((id) => { balances[id] = 0; });
+
+    splits.forEach((split) => {
+      const payer = payerByExpenseId[split.expense_id];
+      const ower = split.user_id;
+      if (!payer || ower === payer) return;
+      balances[ower] = Math.round(((balances[ower] || 0) - split.share_amount) * 100) / 100;
+      balances[payer] = Math.round(((balances[payer] || 0) + split.share_amount) * 100) / 100;
     });
 
-    // raw[debtor][creditor] = montant que debtor doit à creditor
-    const raw = {};
-    for (const s of splits) {
-      const creditor = s.Expense.paid_by;
-      const debtor = s.user_id;
-      if (!creditor || debtor === creditor) continue; // on ignore la part du payeur lui-même
-      raw[debtor] = raw[debtor] || {};
-      raw[debtor][creditor] = (raw[debtor][creditor] || 0) + (parseFloat(s.share_amount) || 0);
-    }
+    // Simplification en transactions minimales (algorithme glouton classique)
+    const creditors = [];
+    const debtors = [];
+    Object.entries(balances).forEach(([user_id, amount]) => {
+      if (amount > 0.01) creditors.push({ user_id: Number(user_id), amount });
+      else if (amount < -0.01) debtors.push({ user_id: Number(user_id), amount: -amount });
+    });
+    creditors.sort((a, b) => b.amount - a.amount);
+    debtors.sort((a, b) => b.amount - a.amount);
 
-    // Dettes nettes par paire (compense les deux sens)
-    const debts = [];
-    for (let i = 0; i < memberIds.length; i += 1) {
-      for (let j = i + 1; j < memberIds.length; j += 1) {
-        const a = memberIds[i];
-        const b = memberIds[j];
-        const ab = (raw[a] && raw[a][b]) || 0;
-        const ba = (raw[b] && raw[b][a]) || 0;
-        const diff = round2(ab - ba);
-        if (diff > 0) debts.push({ debtor_id: a, debtor_name: nameOf.get(a), creditor_id: b, creditor_name: nameOf.get(b), amount: diff });
-        else if (diff < 0) debts.push({ debtor_id: b, debtor_name: nameOf.get(b), creditor_id: a, creditor_name: nameOf.get(a), amount: -diff });
+    const transactions = [];
+    let i = 0, j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      const debtor = debtors[i];
+      const creditor = creditors[j];
+      const amount = Math.round(Math.min(debtor.amount, creditor.amount) * 100) / 100;
+      if (amount > 0) {
+        transactions.push({
+          from: membersMap[debtor.user_id] || { id: debtor.user_id, name: 'Inconnu' },
+          to: membersMap[creditor.user_id] || { id: creditor.user_id, name: 'Inconnu' },
+          amount,
+        });
       }
+      debtor.amount = Math.round((debtor.amount - amount) * 100) / 100;
+      creditor.amount = Math.round((creditor.amount - amount) * 100) / 100;
+      if (debtor.amount <= 0.01) i++;
+      if (creditor.amount <= 0.01) j++;
     }
 
-    // Solde net par membre : (ce qu'on lui doit) - (ce qu'il doit)
-    const net = {};
-    memberIds.forEach((id) => { net[id] = 0; });
-    for (const d of debts) {
-      net[d.debtor_id] = round2(net[d.debtor_id] - d.amount);
-      net[d.creditor_id] = round2(net[d.creditor_id] + d.amount);
-    }
-    const balances = members
-      .map((m) => ({ user_id: m.user_id, name: nameOf.get(m.user_id), net: net[m.user_id] || 0 }))
-      .sort((a, b) => b.net - a.net);
-
-    res.json({ balances, debts: debts.sort((a, b) => b.amount - a.amount) });
+    res.json({
+      balances: Object.entries(balances).map(([user_id, amount]) => ({
+        user: membersMap[user_id] || { id: Number(user_id), name: 'Inconnu' },
+        amount,
+      })),
+      transactions,
+    });
   } catch (error) {
-    console.error('Erreur balances expenses:', error);
+    console.error('Erreur getBalances:', error);
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }
 };
 
-// POST /api/expenses/settle { user_a, user_b }
-// Marque comme réglées toutes les parts non réglées entre deux membres (les deux sens).
-exports.settle = async (req, res) => {
+// ─────────────────────────────────────────────────────────────────
+// POST /api/expenses/settle — marquer une relation comme réglée
+// body: { user_a, user_b } — user_a (le débiteur) rembourse user_b (le créancier)
+// ─────────────────────────────────────────────────────────────────
+exports.settleBetween = async (req, res) => {
   try {
     const household_id = req.householdId;
-    const a = parseInt(req.body.user_a, 10);
-    const b = parseInt(req.body.user_b, 10);
-    if (!a || !b || a === b) {
-      return res.status(400).json({ message: 'Deux membres distincts sont requis' });
-    }
+    const { user_a, user_b } = req.body;
+    if (!user_a || !user_b) return res.status(400).json({ message: 'user_a et user_b sont requis' });
 
-    const splits = await ExpenseSplit.findAll({
-      where: { settled: false, user_id: { [Op.in]: [a, b] } },
-      include: [{
-        model: Expense,
-        attributes: ['id', 'paid_by'],
-        where: { household_id, deleted_at: null, paid_by: { [Op.in]: [a, b] } },
-        required: true,
-      }],
+    // Dépenses ACTIVES uniquement (les supprimées sont explicitement exclues ici)
+    const activeExpenses = await Expense.findAll({
+      where: { household_id, deleted_at: null },
+      attributes: ['id', 'paid_by'],
+    });
+    const activeExpenseIds = activeExpenses.map((e) => e.id);
+    const payerByExpenseId = {};
+    activeExpenses.forEach((e) => { payerByExpenseId[e.id] = e.paid_by; });
+
+    const splits = activeExpenseIds.length > 0
+      ? await ExpenseSplit.findAll({
+          where: {
+            settled: false,
+            user_id: { [Op.in]: [user_a, user_b] },
+            expense_id: { [Op.in]: activeExpenseIds },
+          },
+        })
+      : [];
+
+    const toSettle = splits.filter((s) => {
+      const payer = payerByExpenseId[s.expense_id];
+      const ower = s.user_id;
+      return (payer === Number(user_a) && ower === Number(user_b)) ||
+             (payer === Number(user_b) && ower === Number(user_a));
     });
 
-    // Ne régler que les parts "croisées" (un membre doit à l'autre)
-    const toSettle = splits.filter((s) => s.user_id !== s.Expense.paid_by);
-    const ids = toSettle.map((s) => s.id);
-    const amount = round2(toSettle.reduce((sum, s) => sum + (parseFloat(s.share_amount) || 0), 0));
+    // Montant net réellement remboursé par user_a à user_b sur ces dépenses précises
+    let netAmount = 0;
+    toSettle.forEach((s) => {
+      const payer = payerByExpenseId[s.expense_id];
+      if (payer === Number(user_b)) {
+        netAmount += s.share_amount; // user_b a payé, user_a lui doit sa part
+      } else {
+        netAmount -= s.share_amount; // user_a a payé, ça compense dans l'autre sens
+      }
+    });
+    netAmount = Math.round(netAmount * 100) / 100;
 
-    if (ids.length) {
-      await ExpenseSplit.update(
-        { settled: true, settled_at: new Date(), settled_by: req.user.id },
-        { where: { id: { [Op.in]: ids } } }
-      );
+    // Créer la dépense "Remboursement" D'ABORD, pour pouvoir lier les parts réglées à elle
+    let reimbursement = null;
+    if (netAmount > 0) {
+      const debtor = await User.findByPk(user_a, { attributes: ['id', 'name'] });
+      const creditor = await User.findByPk(user_b, { attributes: ['id', 'name'] });
+
+      reimbursement = await Expense.create({
+        household_id,
+        paid_by: Number(user_a),
+        amount: netAmount,
+        currency: 'EUR',
+        label: `Remboursement à ${creditor?.name || 'un membre'}`,
+        category: 'Remboursement',
+        expense_date: new Date(),
+      });
+
+      await AuditLog.create({
+        user_id: req.user.id,
+        household_id,
+        action: 'settle_debt',
+        entity_type: 'Expense',
+        entity_id: String(reimbursement.id),
+        new_values: JSON.stringify({ from: debtor?.name, to: creditor?.name, amount: netAmount }),
+      });
     }
 
-    res.json({ message: 'Dette réglée', settled_count: ids.length, settled_amount: amount });
+    // Marquer les parts comme réglées, en les liant au remboursement créé
+    await Promise.all(toSettle.map((s) => s.update({
+      settled: true,
+      settled_at: new Date(),
+      settled_by: req.user.id,
+      settled_via_expense_id: reimbursement?.id || null,
+    })));
+
+    res.json({
+      message: `${toSettle.length} dépense(s) marquée(s) comme réglée(s)`,
+      reimbursement,
+    });
   } catch (error) {
-    console.error('Erreur settle expenses:', error);
+    console.error('Erreur settleBetween:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────
+// GET /api/expenses/audit-log — historique des suppressions et règlements
+// (anti-fraude : permet de voir qui a supprimé/réglé quoi et quand)
+// ─────────────────────────────────────────────────────────────────
+exports.getAuditLog = async (req, res) => {
+  try {
+    const household_id = req.householdId;
+    const membersMap = await getHouseholdMembersMap(household_id);
+
+    const logs = await AuditLog.findAll({
+      where: { household_id, entity_type: 'Expense' },
+      order: [['created_at', 'DESC']],
+      limit: 100,
+    });
+
+    const enriched = logs.map((l) => ({
+      ...l.toJSON(),
+      user: membersMap[l.user_id] || null,
+    }));
+
+    res.json(enriched);
+  } catch (error) {
+    console.error('Erreur getAuditLog:', error);
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }
 };

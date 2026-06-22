@@ -1,11 +1,9 @@
-const { Op } = require('sequelize');
-const { ProductCategory, Product, Location } = require('../models');
+const { ProductCategory, Product, Location, HouseholdMember } = require('../models');
 
-// Parse une durée en jours : entier >= 0, sinon null.
-const parseDays = (value) => {
-  if (value === undefined || value === null || value === '') return null;
-  const n = parseInt(value, 10);
-  return Number.isInteger(n) && n >= 0 ? n : null;
+const getHouseholdId = async (userId) => {
+  const member = await HouseholdMember.findOne({ where: { user_id: userId } });
+  if (!member) throw new Error('Aucun foyer trouvé pour cet utilisateur');
+  return member.household_id;
 };
 
 // GET /api/categories
@@ -14,7 +12,6 @@ exports.getAll = async (req, res) => {
     const categories = await ProductCategory.findAll({
       order: [['name', 'ASC']],
     });
-
     res.json(categories);
   } catch (error) {
     console.error('Erreur getAll categories:', error);
@@ -25,7 +22,7 @@ exports.getAll = async (req, res) => {
 // GET /api/categories/:id
 exports.getOne = async (req, res) => {
   try {
-    const household_id = req.householdId;
+    const household_id = await getHouseholdId(req.user.id);
 
     const category = await ProductCategory.findByPk(req.params.id, {
       include: [
@@ -48,61 +45,23 @@ exports.getOne = async (req, res) => {
   }
 };
 
-// PUT /api/categories/:id
-// Configure les durées de conservation utilisées pour l'estimation auto.
-exports.update = async (req, res) => {
-  try {
-    const category = await ProductCategory.findByPk(req.params.id);
-    if (!category) return res.status(404).json({ message: 'Catégorie non trouvée' });
-
-    const { avg_shelf_days, avg_shelf_days_opened, avg_shelf_days_freezer, storage_instructions } = req.body;
-    const updates = {};
-
-    const setDays = (key, value) => {
-      if (value === undefined) return;
-      if (value === null || value === '') { updates[key] = null; return; }
-      const n = parseInt(value, 10);
-      if (Number.isInteger(n) && n >= 0) updates[key] = n;
-    };
-    setDays('avg_shelf_days', avg_shelf_days);
-    setDays('avg_shelf_days_opened', avg_shelf_days_opened);
-    setDays('avg_shelf_days_freezer', avg_shelf_days_freezer);
-    if (storage_instructions !== undefined) updates.storage_instructions = storage_instructions || null;
-
-    await category.update(updates);
-    res.json(category);
-  } catch (error) {
-    console.error('Erreur update category:', error);
-    res.status(500).json({ message: 'Erreur serveur', error: error.message });
-  }
-};
-
-// POST /api/categories
-// Crée une catégorie personnalisée avec sa durée de conservation par défaut
-// (avg_shelf_days), appliquée automatiquement à un produit ajouté sans date.
+// POST /api/categories — créer une catégorie personnalisée
 exports.create = async (req, res) => {
   try {
-    const { name, icon, color, avg_shelf_days, avg_shelf_days_freezer } = req.body;
+    const { name, icon, color, avg_shelf_days, avg_shelf_days_opened, avg_shelf_days_freezer, storage_instructions } = req.body;
 
     if (!name || !name.trim()) {
-      return res.status(400).json({ message: 'Le nom de la catégorie est requis' });
-    }
-    const trimmed = name.trim();
-
-    // Pas de doublon de nom (insensible à la casse)
-    const existing = await ProductCategory.findOne({
-      where: { name: { [Op.iLike]: trimmed } },
-    });
-    if (existing) {
-      return res.status(400).json({ message: 'Une catégorie porte déjà ce nom' });
+      return res.status(400).json({ message: 'Le nom est obligatoire' });
     }
 
     const category = await ProductCategory.create({
-      name: trimmed,
-      icon: icon?.trim() || '📦',
-      color: color || '#6366f1',
-      avg_shelf_days: parseDays(avg_shelf_days),
-      avg_shelf_days_freezer: parseDays(avg_shelf_days_freezer),
+      name: name.trim(),
+      icon: icon || '📦',
+      color: color || '#6b7280',
+      avg_shelf_days: avg_shelf_days === '' || avg_shelf_days == null ? null : avg_shelf_days,
+      avg_shelf_days_opened: avg_shelf_days_opened === '' || avg_shelf_days_opened == null ? null : avg_shelf_days_opened,
+      avg_shelf_days_freezer: avg_shelf_days_freezer === '' || avg_shelf_days_freezer == null ? null : avg_shelf_days_freezer,
+      storage_instructions: storage_instructions || null,
       is_system: false,
     });
 
@@ -113,18 +72,38 @@ exports.create = async (req, res) => {
   }
 };
 
-// DELETE /api/categories/:id - seulement les catégories personnalisées
+// PUT /api/categories/:id — modifier n'importe quelle catégorie (par défaut ou perso)
+exports.update = async (req, res) => {
+  try {
+    const category = await ProductCategory.findByPk(req.params.id);
+    if (!category) return res.status(404).json({ message: 'Catégorie non trouvée' });
+
+    const { name, icon, color, avg_shelf_days, avg_shelf_days_opened, avg_shelf_days_freezer, storage_instructions } = req.body;
+
+    const updates = {};
+    if (name !== undefined) updates.name = name.trim();
+    if (icon !== undefined) updates.icon = icon;
+    if (color !== undefined) updates.color = color;
+    if (avg_shelf_days !== undefined) updates.avg_shelf_days = avg_shelf_days === '' ? null : avg_shelf_days;
+    if (avg_shelf_days_opened !== undefined) updates.avg_shelf_days_opened = avg_shelf_days_opened === '' ? null : avg_shelf_days_opened;
+    if (avg_shelf_days_freezer !== undefined) updates.avg_shelf_days_freezer = avg_shelf_days_freezer === '' ? null : avg_shelf_days_freezer;
+    if (storage_instructions !== undefined) updates.storage_instructions = storage_instructions;
+
+    await category.update(updates);
+
+    res.json(category);
+  } catch (error) {
+    console.error('Erreur update category:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+// DELETE /api/categories/:id — supprimer n'importe quelle catégorie (par défaut ou perso)
 exports.delete = async (req, res) => {
   try {
     const category = await ProductCategory.findByPk(req.params.id);
     if (!category) return res.status(404).json({ message: 'Catégorie non trouvée' });
 
-    if (category.is_system) {
-      return res.status(403).json({ message: 'Les catégories système ne peuvent pas être supprimées' });
-    }
-
-    // Les produits liés sont détachés (et non supprimés)
-    await Product.update({ category_id: null }, { where: { category_id: category.id } });
     await category.destroy();
 
     res.json({ message: 'Catégorie supprimée' });

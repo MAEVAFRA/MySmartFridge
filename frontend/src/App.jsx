@@ -16,6 +16,8 @@ import Expiring from './pages/Expiring'
 import Household from './pages/Household'
 import Profile from './pages/Profile'
 import Scan from './pages/Scan'
+import Categories from './pages/Categories'
+
 
 function App() {
   const [user, setUser] = useState(null)
@@ -118,6 +120,7 @@ function App() {
         <Route path="household" element={<Household />} />
         <Route path="profile" element={<Profile />} />
         <Route path="scan" element={<Scan />} />
+        <Route path="categories" element={<Categories />} />
       </Route>
     </Routes>
   )
