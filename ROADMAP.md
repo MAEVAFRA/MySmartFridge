@@ -18,7 +18,7 @@
 | Colonne | Total | ✅ Terminé | 🟠 En cours | ⬜ À faire |
 |---------|:-----:|:---------:|:----------:|:---------:|
 | Initialisation Projet | 9 | 7 | 0 | 2 |
-| Ticketing (backlog) | 38 | 19 | 0 | 19 |
+| Ticketing (backlog) | 38 | 20 | 0 | 18 |
 | Sprint (1 semaine) | 2 | 0 | 0 | 2 |
 | Hugo | 6 | 6 | 0 | 0 |
 | Omar | 9 | 9 | 0 | 0 |
@@ -96,7 +96,7 @@
 
 **Compte utilisateur**
 - ✅ Consultation et modification du profil *(infos + changement de mot de passe)*
-- ⬜ Réinitialisation du mot de passe par email
+- ✅ Réinitialisation du mot de passe par email
 
 **Notifications**
 - ⬜ Résumé quotidien des produits à risque par email / push

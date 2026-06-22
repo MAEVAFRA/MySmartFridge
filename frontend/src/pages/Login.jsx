@@ -78,6 +78,12 @@ function Login({ onLogin }) {
             {loading ? 'Connexion...' : 'Se connecter'}
           </button>
 
+          <p className="text-center text-sm">
+            <Link to="/forgot-password" className="text-primary-600 hover:text-primary-700 font-medium">
+              Mot de passe oublié ?
+            </Link>
+          </p>
+
           <p className="text-center text-sm text-gray-600">
             Pas encore de compte ?{' '}
             <Link to="/register" className="text-primary-600 hover:text-primary-700 font-medium">

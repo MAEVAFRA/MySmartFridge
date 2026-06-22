@@ -1,6 +1,10 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { User, Household, HouseholdMember, Location, ProductCategory, NotifSettings } = require('../models');
+const crypto = require('crypto');
+const { User, Household, HouseholdMember, Location, ProductCategory, NotifSettings, PasswordReset } = require('../models');
+const { sendPasswordResetEmail } = require('../utils/mailer');
+
+const RESET_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 heure
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -210,6 +214,105 @@ exports.changePassword = async (req, res) => {
     res.json({ message: 'Mot de passe modifié avec succès' });
   } catch (error) {
     console.error('Erreur changePassword:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+// POST /api/auth/forgot-password - Demander un lien de réinitialisation
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'L\'email est requis' });
+    }
+
+    const normalized = email.trim().toLowerCase();
+    const user = await User.findOne({ where: { email: normalized } });
+
+    // Réponse générique : on ne révèle jamais si l'email existe (anti-énumération)
+    const genericResponse = {
+      message: 'Si un compte est associé à cet email, un lien de réinitialisation vient d\'être envoyé.',
+    };
+
+    if (!user) {
+      return res.json(genericResponse);
+    }
+
+    // Invalider les éventuelles demandes précédentes non utilisées
+    await PasswordReset.destroy({ where: { user_id: user.id, used_at: null } });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    await PasswordReset.create({
+      user_id: user.id,
+      token,
+      expires_at: new Date(Date.now() + RESET_TOKEN_EXPIRY_MS),
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
+
+    await sendPasswordResetEmail(user.email, resetUrl);
+
+    // En dev (pas de vrai SMTP), on renvoie le lien pour pouvoir tester le flux
+    if (process.env.NODE_ENV !== 'production') {
+      return res.json({ ...genericResponse, dev_reset_url: resetUrl });
+    }
+
+    res.json(genericResponse);
+  } catch (error) {
+    console.error('Erreur forgotPassword:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+// GET /api/auth/reset-password/:token - Vérifier la validité d'un token
+exports.verifyResetToken = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const reset = await PasswordReset.findOne({ where: { token, used_at: null } });
+
+    if (!reset || new Date() > new Date(reset.expires_at)) {
+      return res.status(400).json({ valid: false, message: 'Lien invalide ou expiré' });
+    }
+
+    res.json({ valid: true });
+  } catch (error) {
+    console.error('Erreur verifyResetToken:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+// POST /api/auth/reset-password - Définir un nouveau mot de passe via token
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ message: 'Token et nouveau mot de passe requis' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Le mot de passe doit faire au moins 6 caractères' });
+    }
+
+    const reset = await PasswordReset.findOne({ where: { token, used_at: null } });
+    if (!reset || new Date() > new Date(reset.expires_at)) {
+      return res.status(400).json({ message: 'Lien invalide ou expiré' });
+    }
+
+    const user = await User.findByPk(reset.user_id);
+    if (!user) {
+      return res.status(404).json({ message: 'Utilisateur introuvable' });
+    }
+
+    const password_hash = await bcrypt.hash(password, 12);
+    await user.update({ password_hash });
+    await reset.update({ used_at: new Date() });
+
+    res.json({ message: 'Votre mot de passe a été réinitialisé. Vous pouvez maintenant vous connecter.' });
+  } catch (error) {
+    console.error('Erreur resetPassword:', error);
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }
 };

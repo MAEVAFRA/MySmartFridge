@@ -4,6 +4,8 @@ import Layout from './components/Layout'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import Products from './pages/Products'
 import Locations from './pages/Locations'
 import ShoppingLists from './pages/ShoppingLists'
@@ -87,6 +89,14 @@ function App() {
       <Route
         path="/register"
         element={user ? <Navigate to="/" /> : <Register onLogin={login} />}
+      />
+      <Route
+        path="/forgot-password"
+        element={user ? <Navigate to="/" /> : <ForgotPassword />}
+      />
+      <Route
+        path="/reset-password"
+        element={user ? <Navigate to="/" /> : <ResetPassword />}
       />
 
       {/* Routes protégées */}
