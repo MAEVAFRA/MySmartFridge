@@ -13,6 +13,12 @@ router.get('/', expenseController.getAll);
 // GET /api/expenses/summary - Totaux (global, par catégorie, par membre)
 router.get('/summary', expenseController.summary);
 
+// GET /api/expenses/balances - Soldes du foyer (qui doit combien à qui)
+router.get('/balances', expenseController.balances);
+
+// POST /api/expenses/settle - Marquer une dette réglée entre deux membres
+router.post('/settle', expenseController.settle);
+
 // POST /api/expenses - Enregistrer une dépense
 router.post('/', expenseController.create);
 

@@ -18,7 +18,7 @@
 | Colonne | Total | ✅ Terminé | 🟠 En cours | ⬜ À faire |
 |---------|:-----:|:---------:|:----------:|:---------:|
 | Initialisation Projet | 9 | 9 | 0 | 0 |
-| Ticketing (backlog) | 39 | 27 | 0 | 12 |
+| Ticketing (backlog) | 39 | 30 | 0 | 9 |
 | Sprint (1 semaine) | 2 | 1 | 0 | 1 |
 | Hugo | 6 | 6 | 0 | 0 |
 | Omar | 9 | 9 | 0 | 0 |
@@ -76,9 +76,9 @@
 
 **Dépenses & budget partagé**
 - ✅ Enregistrer une dépense et l'associer à un ticket *(enregistrement fait ; lien vers un ticket scanné à venir avec l'OCR)*
-- ⬜ Répartir les coûts entre les membres du foyer (split)
-- ⬜ Tableau de bord des soldes (qui doit combien à qui)
-- ⬜ Marquer une dette comme remboursée
+- ✅ Répartir les coûts entre les membres du foyer (split)
+- ✅ Tableau de bord des soldes (qui doit combien à qui)
+- ✅ Marquer une dette comme remboursée
 - ✅ Historique des dépenses par période (semaine/mois)
 - ✅ Budget mensuel par catégorie avec alerte de dépassement
 - ✅ Total dépensé par période, catégorie et membre

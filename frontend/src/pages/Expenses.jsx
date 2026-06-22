@@ -3,6 +3,7 @@ import { Wallet, Plus, Trash2, Edit2, X, AlertTriangle, Receipt, Users, Tag } fr
 import api from '../services/api'
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS, euro } from '../utils/expenses'
 import BudgetPanel from '../components/BudgetPanel'
+import BalancesPanel from '../components/BalancesPanel'
 import { useToast } from '../components/Toast'
 
 const ymd = (d) =>
@@ -35,11 +36,23 @@ function Expenses() {
   const [form, setForm] = useState(emptyForm())
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [members, setMembers] = useState([])
+  const [splitEnabled, setSplitEnabled] = useState(false)
+  const [splitShares, setSplitShares] = useState({})
   const toast = useToast()
+  const currentUserId = JSON.parse(localStorage.getItem('user') || '{}').id
 
   useEffect(() => {
     fetchExpenses()
   }, [period])
+
+  useEffect(() => {
+    const hid = localStorage.getItem('selectedHouseholdId')
+    if (!hid) return
+    api.get(`/households/${hid}`)
+      .then((res) => setMembers((res.data.members || []).map((m) => ({ user_id: m.id, name: m.name }))))
+      .catch(() => {})
+  }, [])
 
   const fetchExpenses = async () => {
     setLoading(true)
@@ -68,9 +81,49 @@ function Expenses() {
 
   const total = expenses.reduce((sum, e) => sum + (e.amount || 0), 0)
 
+  // ── Partage de la dépense entre membres ──
+  const toggleSplit = (on) => {
+    setSplitEnabled(on)
+    if (on && members.length) {
+      const amt = parseFloat(form.amount)
+      const per = Number.isFinite(amt) && amt > 0 ? (amt / members.length).toFixed(2) : ''
+      const shares = {}
+      members.forEach((m) => { shares[m.user_id] = per })
+      setSplitShares(shares)
+    } else {
+      setSplitShares({})
+    }
+  }
+
+  const toggleSplitMember = (userId) => {
+    setSplitShares((prev) => {
+      const next = { ...prev }
+      if (next[userId] !== undefined) delete next[userId]
+      else next[userId] = ''
+      return next
+    })
+  }
+
+  const setSplitShare = (userId, value) =>
+    setSplitShares((prev) => ({ ...prev, [userId]: value }))
+
+  const splitEqually = () => {
+    const ids = Object.keys(splitShares)
+    const amt = parseFloat(form.amount)
+    if (!ids.length || !Number.isFinite(amt) || amt <= 0) return
+    const per = (amt / ids.length).toFixed(2)
+    const next = {}
+    ids.forEach((id) => { next[id] = per })
+    setSplitShares(next)
+  }
+
+  const splitTotal = Object.values(splitShares).reduce((s, v) => s + (parseFloat(v) || 0), 0)
+
   const openAdd = () => {
     setEditing(null)
     setForm(emptyForm())
+    setSplitEnabled(false)
+    setSplitShares({})
     setError('')
     setShowModal(true)
   }
@@ -85,6 +138,15 @@ function Expenses() {
       payment_method: e.payment_method || '',
       expense_date: e.expense_date ? e.expense_date.slice(0, 10) : todayYmd(),
     })
+    if (e.splits && e.splits.length) {
+      setSplitEnabled(true)
+      const shares = {}
+      e.splits.forEach((s) => { shares[s.user_id] = String(s.share_amount) })
+      setSplitShares(shares)
+    } else {
+      setSplitEnabled(false)
+      setSplitShares({})
+    }
     setError('')
     setShowModal(true)
   }
@@ -98,11 +160,19 @@ function Expenses() {
     }
     setSaving(true)
     setError('')
+    const payload = { ...form }
+    if (splitEnabled) {
+      payload.splits = Object.entries(splitShares)
+        .filter(([, amt]) => amt !== '' && parseFloat(amt) > 0)
+        .map(([user_id, amt]) => ({ user_id: parseInt(user_id, 10), share_amount: parseFloat(amt) }))
+    } else if (editing) {
+      payload.splits = []
+    }
     try {
       if (editing) {
-        await api.put(`/expenses/${editing.id}`, form)
+        await api.put(`/expenses/${editing.id}`, payload)
       } else {
-        await api.post('/expenses', form)
+        await api.post('/expenses', payload)
       }
       setShowModal(false)
       fetchExpenses()
@@ -153,6 +223,7 @@ function Expenses() {
         {[
           { key: 'list', label: 'Dépenses' },
           { key: 'budgets', label: 'Budgets' },
+          { key: 'balances', label: 'Soldes' },
         ].map(({ key, label }) => (
           <button
             key={key}
@@ -169,6 +240,7 @@ function Expenses() {
       </div>
 
       {view === 'budgets' && <BudgetPanel />}
+      {view === 'balances' && <BalancesPanel />}
 
       {view === 'list' && (
       <>
@@ -274,7 +346,14 @@ function Expenses() {
                     {e.expense_date ? new Date(e.expense_date).toLocaleDateString('fr-FR') : '—'}
                   </td>
                   <td className="px-6 py-4">
-                    <p className="font-medium text-gray-900">{e.label || 'Dépense'}</p>
+                    <p className="font-medium text-gray-900 flex items-center gap-2">
+                      {e.label || 'Dépense'}
+                      {e.splits?.length > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary-50 text-primary-600">
+                          <Users className="h-3 w-3" /> partagée
+                        </span>
+                      )}
+                    </p>
                     {(e.store_name || e.payment_method) && (
                       <p className="text-xs text-gray-400">
                         {[e.store_name, e.payment_method].filter(Boolean).join(' • ')}
@@ -411,6 +490,60 @@ function Expenses() {
                   onChange={(e) => setForm({ ...form, store_name: e.target.value })}
                   className={inputClass}
                 />
+              </div>
+
+              {/* Partage entre membres */}
+              <div className="border-t border-gray-100 pt-3">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={splitEnabled}
+                    onChange={(e) => toggleSplit(e.target.checked)}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <Users className="h-4 w-4 text-primary-600" /> Partager entre membres
+                </label>
+
+                {splitEnabled && (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500">Qui participe et combien ?</span>
+                      <button type="button" onClick={splitEqually} className="text-xs text-primary-600 hover:underline">
+                        Répartir équitablement
+                      </button>
+                    </div>
+                    {members.map((m) => {
+                      const checked = splitShares[m.user_id] !== undefined
+                      return (
+                        <div key={m.user_id} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleSplitMember(m.user_id)}
+                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          />
+                          <span className="flex-1 text-sm text-gray-700">
+                            {m.name}{m.user_id === currentUserId ? ' (toi)' : ''}
+                          </span>
+                          {checked && (
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="€"
+                              value={splitShares[m.user_id]}
+                              onChange={(e) => setSplitShare(m.user_id, e.target.value)}
+                              className="w-24 px-2 py-1 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                          )}
+                        </div>
+                      )
+                    })}
+                    <p className={`text-xs ${Math.abs(splitTotal - (parseFloat(form.amount) || 0)) < 0.01 ? 'text-gray-400' : 'text-amber-600'}`}>
+                      Tu as payé — les autres te rembourseront leur part. Total des parts : {euro(splitTotal)} / {euro(parseFloat(form.amount) || 0)}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
