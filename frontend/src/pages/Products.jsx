@@ -1,8 +1,9 @@
 import { useState, useEffect, Fragment } from 'react'
-import { Plus, Search, Trash2, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Utensils, Upload, Package, Image as ImageIcon, Clock } from 'lucide-react'
+import { Plus, Search, Trash2, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Utensils, Upload, Package, Image as ImageIcon, Tags } from 'lucide-react'
 import api from '../services/api'
 import { fileToResizedDataUrl } from '../utils/image'
 import { useToast } from '../components/Toast'
+import { useConfirm } from '../components/ConfirmDialog'
 
 const toYmd = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -35,6 +36,10 @@ function Products() {
   })
 
   const toast = useToast()
+  const confirm = useConfirm()
+
+  const [newCat, setNewCat] = useState({ name: '', icon: '', avg_shelf_days: '', avg_shelf_days_freezer: '' })
+  const [creatingCat, setCreatingCat] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -152,6 +157,57 @@ function Products() {
       toast.error('Erreur lors de l\'enregistrement')
     } finally {
       setSavingShelf(false)
+    }
+  }
+
+  // ── Création / suppression de catégories ──
+  const handleCreateCategory = async () => {
+    if (!newCat.name.trim()) return
+    setCreatingCat(true)
+    try {
+      const res = await api.post('/categories', {
+        name: newCat.name.trim(),
+        icon: newCat.icon.trim() || undefined,
+        avg_shelf_days: newCat.avg_shelf_days === '' ? null : newCat.avg_shelf_days,
+        avg_shelf_days_freezer: newCat.avg_shelf_days_freezer === '' ? null : newCat.avg_shelf_days_freezer,
+      })
+      const created = res.data
+      // Garde le brouillon de durées cohérent avec la nouvelle catégorie
+      setShelfDrafts((d) => ({
+        ...d,
+        [created.id]: {
+          avg_shelf_days: created.avg_shelf_days ?? '',
+          avg_shelf_days_freezer: created.avg_shelf_days_freezer ?? '',
+        },
+      }))
+      setNewCat({ name: '', icon: '', avg_shelf_days: '', avg_shelf_days_freezer: '' })
+      await fetchData()
+      toast.success('Catégorie créée')
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Erreur lors de la création de la catégorie')
+    } finally {
+      setCreatingCat(false)
+    }
+  }
+
+  const handleDeleteCategory = async (cat) => {
+    const ok = await confirm({
+      title: `Supprimer « ${cat.name} » ?`,
+      message: 'Les produits de cette catégorie ne seront pas supprimés (juste détachés).',
+      confirmLabel: 'Supprimer',
+    })
+    if (!ok) return
+    try {
+      await api.delete(`/categories/${cat.id}`)
+      setShelfDrafts((d) => {
+        const next = { ...d }
+        delete next[cat.id]
+        return next
+      })
+      await fetchData()
+      toast.success('Catégorie supprimée')
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Erreur lors de la suppression')
     }
   }
 
@@ -274,10 +330,10 @@ function Products() {
           <button
             onClick={openShelfModal}
             className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50"
-            title="Configurer les durées de conservation utilisées pour l'estimation auto"
+            title="Gérer les catégories et leur durée de conservation par défaut"
           >
-            <Clock className="h-5 w-5" />
-            <span className="hidden sm:inline">Durées de conservation</span>
+            <Tags className="h-5 w-5" />
+            <span className="hidden sm:inline">Catégories</span>
           </button>
           <button
             onClick={() => openModal()}
@@ -623,18 +679,19 @@ function Products() {
           <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[85vh] flex flex-col">
             <div className="p-5 border-b border-gray-100">
               <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Clock className="h-5 w-5 text-primary-600" />
-                Durées de conservation
+                <Tags className="h-5 w-5 text-primary-600" />
+                Catégories & durées de conservation
               </h2>
               <p className="text-sm text-gray-500 mt-1">
-                Servent à estimer automatiquement la péremption d'un produit ajouté sans date (en jours).
+                La durée « Frigo / placard » s'applique automatiquement comme date de péremption d'un produit ajouté sans date.
               </p>
             </div>
             <div className="flex-1 overflow-y-auto p-5">
-              <div className="grid grid-cols-[1fr_5rem_5rem] gap-x-3 gap-y-2 items-center">
+              <div className="grid grid-cols-[1fr_5rem_5rem_1.5rem] gap-x-3 gap-y-2 items-center">
                 <span></span>
                 <span className="text-[11px] font-medium text-gray-500 text-center uppercase">Frigo / placard</span>
                 <span className="text-[11px] font-medium text-gray-500 text-center uppercase">Congélateur</span>
+                <span></span>
                 {categories.map((c) => (
                   <Fragment key={c.id}>
                     <span className="text-sm text-gray-700 truncate">{c.icon} {c.name}</span>
@@ -652,8 +709,73 @@ function Products() {
                       onChange={(e) => setDraft(c.id, 'avg_shelf_days_freezer', e.target.value)}
                       className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
+                    {c.is_system ? (
+                      <span />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCategory(c)}
+                        className="flex justify-center text-gray-300 hover:text-red-600"
+                        title="Supprimer cette catégorie"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </Fragment>
                 ))}
+              </div>
+
+              {/* Créer une nouvelle catégorie */}
+              <div className="mt-6 pt-5 border-t border-gray-100 space-y-2">
+                <p className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                  <Plus className="h-4 w-4 text-primary-600" /> Nouvelle catégorie
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nom (ex: Fruits & légumes)"
+                    value={newCat.name}
+                    onChange={(e) => setNewCat({ ...newCat, name: e.target.value })}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <input
+                    type="text"
+                    maxLength={2}
+                    placeholder="🥗"
+                    value={newCat.icon}
+                    onChange={(e) => setNewCat({ ...newCat, icon: e.target.value })}
+                    title="Icône (emoji, optionnel)"
+                    className="w-14 px-2 py-2 border border-gray-300 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Frigo (j)"
+                    value={newCat.avg_shelf_days}
+                    onChange={(e) => setNewCat({ ...newCat, avg_shelf_days: e.target.value })}
+                    title="Durée de conservation par défaut au frigo / placard (jours)"
+                    className="w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Congél. (j)"
+                    value={newCat.avg_shelf_days_freezer}
+                    onChange={(e) => setNewCat({ ...newCat, avg_shelf_days_freezer: e.target.value })}
+                    title="Durée au congélateur (jours, optionnel)"
+                    className="w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateCategory}
+                    disabled={creatingCat || !newCat.name.trim()}
+                    className="ml-auto px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm disabled:opacity-50"
+                  >
+                    {creatingCat ? 'Création...' : 'Ajouter'}
+                  </button>
+                </div>
               </div>
             </div>
             <div className="p-5 border-t border-gray-100 flex justify-end gap-3">
