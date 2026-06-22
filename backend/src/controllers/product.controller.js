@@ -1,5 +1,18 @@
 const { Op } = require('sequelize');
-const { Product, Location, ProductCategory } = require('../models');
+const { Product, Location, ProductCategory, ProductConsumptionLog } = require('../models');
+
+// Durée de conservation estimée (jours) selon la catégorie et le type
+// d'emplacement : au congélateur on privilégie avg_shelf_days_freezer.
+const estimateShelfDays = (category, location) => {
+  if (!category) return null;
+  if (location && location.type === 'freezer' && category.avg_shelf_days_freezer) {
+    return category.avg_shelf_days_freezer;
+  }
+  return category.avg_shelf_days ?? null;
+};
+
+const ymd = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 // GET /api/products
 exports.getAll = async (req, res) => {
@@ -87,14 +100,35 @@ exports.getOne = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     const household_id = req.householdId;
-    const { name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price } = req.body;
+    const { name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price, image_url } = req.body;
+
+    // Si l'utilisateur n'a pas saisi de date, on l'estime depuis la catégorie
+    // (et le type d'emplacement). expiry_source trace l'origine de la date.
+    let finalExpiry = expires_at || null;
+    let expirySource = finalExpiry ? 'manual' : null;
+
+    if (!finalExpiry && category_id) {
+      const [category, location] = await Promise.all([
+        ProductCategory.findByPk(category_id),
+        location_id ? Location.findByPk(location_id) : null,
+      ]);
+      const days = estimateShelfDays(category, location);
+      if (days != null) {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + days);
+        finalExpiry = ymd(d);
+        expirySource = 'category_avg';
+      }
+    }
 
     const product = await Product.create({
-      name, quantity, unit, expires_at, barcode, notes,
-      location_id, category_id, brand, price,
+      name, quantity, unit, barcode, notes,
+      location_id, category_id, brand, price, image_url,
+      expires_at: finalExpiry,
       household_id,
       added_by: req.user.id,
-      expiry_source: 'manual',
+      expiry_source: expirySource || 'manual',
     });
 
     const full = await Product.findByPk(product.id, {
@@ -122,8 +156,8 @@ exports.update = async (req, res) => {
 
     if (!product) return res.status(404).json({ message: 'Produit non trouvé' });
 
-    const { name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price } = req.body;
-    await product.update({ name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price });
+    const { name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price, image_url } = req.body;
+    await product.update({ name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price, image_url });
 
     const updated = await Product.findByPk(product.id, {
       include: [
@@ -152,6 +186,23 @@ exports.delete = async (req, res) => {
 
     // Soft delete
     await product.update({ deleted_at: new Date() });
+
+    // Journalise le motif de sortie pour alimenter les statistiques de
+    // consommation / gaspillage (consumed | thrown | expired).
+    const reason = (req.body && req.body.reason) || req.query.reason;
+    if (['consumed', 'thrown', 'expired'].includes(reason)) {
+      await ProductConsumptionLog.create({
+        household_id,
+        user_id: req.user.id,
+        product_id: product.id,
+        category_id: product.category_id || null,
+        action: reason,
+        quantity: product.quantity || 1,
+        unit: product.unit || null,
+        price_at_time: product.price_per_unit ?? product.price ?? null,
+        logged_at: new Date(),
+      });
+    }
 
     res.json({ message: 'Produit supprimé' });
   } catch (error) {

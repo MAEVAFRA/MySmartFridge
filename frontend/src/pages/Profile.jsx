@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { User, Save, Lock, AlertTriangle, CheckCircle, X } from 'lucide-react'
+import { User, Save, Lock, AlertTriangle, CheckCircle, X, Upload } from 'lucide-react'
 import api from '../services/api'
+import { fileToResizedDataUrl } from '../utils/image'
 
 function Profile() {
   const [loading, setLoading] = useState(true)
@@ -53,6 +54,19 @@ function Profile() {
     } catch (err) {
       setError(err.response?.data?.message || 'Erreur lors de l\'enregistrement')
       setSavingProfile(false)
+    }
+  }
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // autorise la re-sélection du même fichier
+    if (!file) return
+    setError('')
+    try {
+      const dataUrl = await fileToResizedDataUrl(file, 400, 0.8)
+      setProfile((p) => ({ ...p, avatar_url: dataUrl }))
+    } catch {
+      setError('Impossible de lire cette image')
     }
   }
 
@@ -117,20 +131,27 @@ function Profile() {
 
         <div className="flex items-center gap-4">
           <div
-            className="h-16 w-16 rounded-full flex items-center justify-center text-white font-semibold text-xl flex-shrink-0 bg-primary-600 bg-cover bg-center"
+            className="h-20 w-20 rounded-full flex items-center justify-center text-white font-semibold text-2xl flex-shrink-0 bg-primary-600 bg-cover bg-center"
             style={profile.avatar_url ? { backgroundImage: `url(${profile.avatar_url})` } : {}}
           >
             {!profile.avatar_url && (profile.name?.charAt(0).toUpperCase() || '?')}
           </div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700">URL de l'avatar <span className="text-gray-400 font-normal">— optionnel</span></label>
-            <input
-              type="url"
-              placeholder="https://..."
-              value={profile.avatar_url}
-              onChange={(e) => setProfile({ ...profile, avatar_url: e.target.value })}
-              className={inputClass}
-            />
+          <div className="flex flex-col gap-1.5">
+            <span className="block text-sm font-medium text-gray-700">Photo de profil</span>
+            <label className="cursor-pointer text-sm px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 inline-flex items-center gap-1.5 w-fit">
+              <Upload className="h-4 w-4" />
+              {profile.avatar_url ? 'Changer la photo' : 'Choisir une photo'}
+              <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+            </label>
+            {profile.avatar_url && (
+              <button
+                type="button"
+                onClick={() => setProfile({ ...profile, avatar_url: '' })}
+                className="text-xs text-red-500 hover:text-red-600 w-fit"
+              >
+                Retirer la photo
+              </button>
+            )}
           </div>
         </div>
 

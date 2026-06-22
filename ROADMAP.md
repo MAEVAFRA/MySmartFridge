@@ -18,7 +18,7 @@
 | Colonne | Total | ✅ Terminé | 🟠 En cours | ⬜ À faire |
 |---------|:-----:|:---------:|:----------:|:---------:|
 | Initialisation Projet | 9 | 7 | 0 | 2 |
-| Ticketing (backlog) | 38 | 4 | 1 | 33 |
+| Ticketing (backlog) | 38 | 19 | 0 | 19 |
 | Sprint (1 semaine) | 2 | 0 | 0 | 2 |
 | Hugo | 6 | 6 | 0 | 0 |
 | Omar | 9 | 9 | 0 | 0 |
@@ -60,19 +60,19 @@
 
 **Produits & inventaire**
 - ⬜ Scanner un code-barre pour pré-remplir le formulaire
-- ⬜ Estimer automatiquement la péremption (configurable)
-- ⬜ Trier par date de péremption / nom / quantité
-- ⬜ Afficher une photo pour chaque produit
+- ✅ Estimer automatiquement la péremption (configurable)
+- ✅ Trier par date de péremption / nom / quantité
+- ✅ Afficher une photo pour chaque produit
 
 **Recettes**
-- ⬜ Suggestions de recettes selon les produits disponibles
-- ⬜ Affichage du détail d'une recette avec photo et étapes
-- ⬜ Indication des ingrédients disponibles vs manquants
-- ⬜ Priorité aux produits proches de la péremption
-- ⬜ Décrémenter les stocks utilisés quand une recette est effectuée
-- ⬜ Filtres (végétarien, sans gluten, temps de préparation)
-- ⬜ Sauvegarder une recette en favoris
-- ⬜ Historique des recettes cuisinées
+- ✅ Suggestions de recettes selon les produits disponibles
+- ✅ Affichage du détail d'une recette avec photo et étapes
+- ✅ Indication des ingrédients disponibles vs manquants
+- ✅ Priorité aux produits proches de la péremption (anti-gaspi)
+- ✅ Décrémenter les stocks utilisés quand une recette est effectuée
+- ✅ Filtres (végétarien, sans gluten, temps de préparation)
+- ✅ Sauvegarder une recette en favoris
+- ✅ Historique des recettes cuisinées
 
 **Dépenses & budget partagé**
 - ⬜ Enregistrer une dépense et l'associer à un ticket
@@ -85,7 +85,7 @@
 
 **Listes de courses**
 - ✅ Créer et gérer des listes de courses partagées
-- 🟠 Ajouter des articles manuellement ou depuis l'inventaire *(ajout manuel fait ; « depuis l'inventaire » à venir)*
+- ✅ Ajouter des articles manuellement ou depuis l'inventaire
 - ✅ Cocher les articles achetés et les transférer en stock
 
 **Foyer & collaboration**
@@ -102,9 +102,9 @@
 - ⬜ Résumé quotidien des produits à risque par email / push
 
 **Statistiques & export**
-- ⬜ Taux de gaspillage (produits périmés / jetés)
-- ⬜ Graphiques de consommation (camembert, barres)
-- ⬜ Export CSV des données
+- ✅ Taux de gaspillage (produits périmés / jetés)
+- ✅ Graphiques de consommation (camembert, barres)
+- ✅ Export CSV des données
 
 ---
 

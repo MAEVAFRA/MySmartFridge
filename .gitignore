@@ -31,3 +31,7 @@ coverage/
 # Misc
 *.tmp
 *.temp
+
+# Scripts de test manuels / jetables
+_smoketest.py
+backend/_smoketest.py
