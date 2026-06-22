@@ -41,6 +41,10 @@ const guessDefaultLocationId = (name, locations) => {
   return locations[0]?.id || ''
 }
 
+// ─── URL absolue de l'image stockée côté backend ───────────────────
+const BACKEND_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')
+const getImageUrl = (imageUrl) => (imageUrl ? `${BACKEND_ORIGIN}${imageUrl}` : null)
+
 // ─── Devinette de catégorie par mot-clé (pour estimer la péremption) ──
 const CATEGORY_HINTS = {
   'Légumes': ['légume', 'legume', 'salade', 'tomate', 'carotte', 'poireau', 'pomme de terre', 'oignon', 'maïs', 'mais'],
@@ -232,6 +236,35 @@ function Scan() {
     setConfirmError('')
   }
 
+  const openHistoryScan = async (scanId) => {
+    try {
+      const res = await api.get(`/receipts/${scanId}`)
+      setResult({ scan: res.data, rawText: res.data.raw_ocr_text })
+      setEditableItems(
+        (res.data.items || []).map((item) => {
+          const location_id = guessDefaultLocationId(item.name, locations)
+          const category_id = guessCategoryId(item.name, categories)
+          return {
+            ...item,
+            selected: true,
+            quantity: item.quantity || 1,
+            unit: item.unit || 'unité',
+            location_id,
+            category_id,
+            expires_at: estimateExpiry(category_id, location_id, categories, locations),
+          }
+        })
+      )
+      setConfirmSuccess(false)
+      setConfirmError('')
+      setError('')
+      setPreview(null)
+      setShowHistory(false)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   const quality = result ? getQuality(result.scan.ocr_confidence) : null
   const qs = quality ? QUALITY_STYLES[quality.color] : null
   const itemCount = editableItems.length
@@ -384,6 +417,22 @@ function Scan() {
                 Nouveau scan
               </button>
             </div>
+
+            {getImageUrl(result.scan.image_url) && (
+              <a
+                href={getImageUrl(result.scan.image_url)}
+                target="_blank"
+                rel="noreferrer"
+                className="block mb-4"
+              >
+                <img
+                  src={getImageUrl(result.scan.image_url)}
+                  alt="Photo du ticket"
+                  className="w-full max-h-56 object-contain rounded-lg border bg-gray-50 hover:opacity-90 transition-opacity"
+                />
+                <p className="text-xs text-gray-400 mt-1 text-center">Cliquer pour agrandir</p>
+              </a>
+            )}
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div className="bg-gray-50 rounded-lg p-3">
@@ -639,9 +688,21 @@ function Scan() {
               history.map((scan) => {
                 const hq = getQuality(scan.ocr_confidence)
                 return (
-                  <div key={scan.id} className="flex items-center justify-between p-4 hover:bg-gray-50">
+                  <div
+                    key={scan.id}
+                    onClick={() => openHistoryScan(scan.id)}
+                    className="flex items-center justify-between p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
                     <div className="flex items-center gap-3">
-                      <FileText className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                      {getImageUrl(scan.image_url) ? (
+                        <img
+                          src={getImageUrl(scan.image_url)}
+                          alt=""
+                          className="h-10 w-10 rounded-lg object-cover flex-shrink-0 border border-gray-100"
+                        />
+                      ) : (
+                        <FileText className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                      )}
                       <div>
                         <p className="font-medium text-gray-900 text-sm">{scan.store_name || 'Magasin inconnu'}</p>
                         <p className="text-xs text-gray-400 flex items-center gap-1.5 flex-wrap">
@@ -655,7 +716,7 @@ function Scan() {
                       </div>
                     </div>
                     <button
-                      onClick={() => handleDelete(scan.id)}
+                      onClick={(e) => { e.stopPropagation(); handleDelete(scan.id) }}
                       className="text-gray-300 hover:text-red-500 transition-colors ml-2 flex-shrink-0"
                     >
                       <Trash2 className="h-4 w-4" />

@@ -24,7 +24,6 @@ const SKIP_KEYWORDS = [
 const parseReceiptText = (text) => {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-  // ─── Magasin ────────────────────────────────────────────────────
   let storeName = null;
   const storeKeywords = ['carrefour', 'leclerc', 'lidl', 'aldi', 'intermarche', 'monoprix',
     'casino', 'franprix', 'super u', 'simply', 'netto', 'picard', 'brasserie', 'restaurant'];
@@ -34,7 +33,6 @@ const parseReceiptText = (text) => {
   }
   if (!storeName && lines.length > 0) storeName = lines[0];
 
-  // ─── Total ──────────────────────────────────────────────────────
   let totalAmount = null;
   const totalRegex = /total[^\d]*(\d{1,4}[,.]\d{2})/i;
   for (const line of lines) {
@@ -42,7 +40,6 @@ const parseReceiptText = (text) => {
     if (match) { totalAmount = parseFloat(match[1].replace(',', '.')); break; }
   }
 
-  // ─── Date — format numérique JJ/MM/AAAA ────────────────────────
   let purchaseDate = null;
   const dateRegex = /(\d{2})[\/\-\.](\d{2})[\/\-\.](\d{2,4})/;
   for (const line of lines) {
@@ -55,7 +52,6 @@ const parseReceiptText = (text) => {
     }
   }
 
-  // ─── Date — format textuel "Mardi 20 novembre" (sans année) ───
   if (!purchaseDate) {
     const textDateRegex = /(\d{1,2})\s+(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)/i;
     for (const line of lines) {
@@ -70,10 +66,7 @@ const parseReceiptText = (text) => {
     }
   }
 
-  // ─── Articles ───────────────────────────────────────────────────
-  // Format A : points de suite "Nom du produit . . . . . . 14,90 €"
   const dotLeaderRegex = /^(.+?)[\s.]{2,}(\d{1,4}[,.]\d{2})\s*€?\s*$/;
-  // Format B : quantité préfixée "1x NOM 10.00 €" (tickets restaurant/autres)
   const quantityPrefixRegex = /^\d+x?\s+(.+?)\s+(\d{1,4}[,.]\d{2})\s*€?\s*$/i;
 
   const items = [];
@@ -95,11 +88,9 @@ const parseReceiptText = (text) => {
     }
 
     if (name) {
-      // Nettoyer les points de suite résiduels et espaces
       name = name.replace(/[.\s]+$/, '').trim();
     }
 
-    // Filtrer les faux positifs : noms trop courts, purement numériques, ou prix incohérent
     const isPlausible = name && price != null && name.length > 1 && !/^\d+$/.test(name) && price > 0 && price < 1000;
 
     if (isPlausible) {
@@ -115,11 +106,15 @@ exports.scan = async (req, res) => {
   try {
     const household_id = await getHouseholdId(req.user.id);
     const { data: { text, confidence } } = await Tesseract.recognize(req.file.path, 'fra', { logger: () => {} });
-    fs.unlinkSync(req.file.path);
+
+    // On NE supprime plus le fichier : on le conserve pour pouvoir le réafficher plus tard
+    const imageUrl = `/uploads/${path.basename(req.file.path)}`;
+
     const parsed = parseReceiptText(text);
     const scan = await ReceiptScan.create({
       household_id,
       scanned_by: req.user.id,
+      image_url: imageUrl,
       store_name: parsed.storeName,
       total_amount: parsed.totalAmount,
       scanned_at: parsed.purchaseDate || new Date(),
@@ -174,6 +169,13 @@ exports.delete = async (req, res) => {
     const household_id = await getHouseholdId(req.user.id);
     const scan = await ReceiptScan.findOne({ where: { id: req.params.id, household_id } });
     if (!scan) return res.status(404).json({ message: 'Ticket introuvable' });
+
+    // Supprimer aussi le fichier image associé pour ne pas accumuler de fichiers orphelins
+    if (scan.image_url) {
+      const filePath = path.join(__dirname, '../../uploads', path.basename(scan.image_url));
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+
     await scan.destroy();
     res.json({ message: 'Ticket supprimé' });
   } catch (error) {
