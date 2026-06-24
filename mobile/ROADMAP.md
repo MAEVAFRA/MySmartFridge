@@ -32,7 +32,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 - ⬜ **Inventaire / Scanner / Courses / Plus** : 4 onglets sur 5 = `ComingSoonScreen` (placeholders).
 
 ### Dettes / manques transverses identifiés (vérifiés dans le code)
-- ⚠️ **401 non géré** : `onError` Dio = stub `TODO(auth)`. Pas de logout auto sur token expiré.
+- ✅ **401 géré globalement** (AUTH-6/TECH-1, livré) : l'intercepteur Dio déconnecte automatiquement sur un 401 d'une requête authentifiée (endpoints d'auth publics exclus) et le routeur renvoie au login. `LogInterceptor` actif en debug (sans logguer le token).
 - ✅ **`_loadSession` ne déconnecte plus sur coupure réseau** (AUTH-7, livré) : 401/403 ou token localement expiré → déconnexion ; réseau/timeout/erreur transitoire → session conservée en mode dégradé (identité minimale reconstruite depuis le JWT). Reste à faire : l'intercepteur 401 global (AUTH-6/TECH-1).
 - ⚠️ **Modèle `Product` (inventory_models.dart) read-only** : pas de `toJson`, et absence des champs `barcode`, `category`, `photo`, `quantity`/`unit` en écriture, location réduite à `id`/`name`. L'ajout/édition produit exige d'abord d'étendre le modèle + sérialisation (voir INV-0).
 - ⚠️ **Register** : `RegisterScreen` collecte Prénom + Nom puis les **concatène en un seul champ `name` non réversible** (register_screen.dart l.42-43). PROF-2 héritera de ce champ fusionné — choix à acter (voir AUTH-11).
@@ -71,7 +71,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 | AUTH-4 | Restauration de session au démarrage | ✅ | P-Haute | M | `GET /auth/me` | — |
 | AUTH-5 | Logout | ✅ | P-Haute | S | — (clear token local) | — |
 | AUTH-7 | **Ne pas déconnecter sur coupure réseau** : dans `_loadSession`, distinguer 401 (logout) de réseau/timeout (garder la session, état dégradé). **Indépendant de AUTH-6.** | ✅ | P-Haute | S | `GET /auth/me` | — |
-| AUTH-6 | Gestion 401 globale (logout auto + redirect login) dans l'intercepteur Dio | ⬜ | P-Haute | M | intercepteur Dio | TECH-1 |
+| AUTH-6 | Gestion 401 globale (logout auto + redirect login) dans l'intercepteur Dio | ✅ | P-Haute | M | intercepteur Dio | TECH-1 |
 | AUTH-8 | Factoriser validators (email) + helper submit (3 écrans) | ⬜ | P-Basse | S | — | — |
 | AUTH-9 | Reset password via deep link | ⬜ | P-Moy | M | `GET /auth/reset-password/:token`, `POST /auth/reset-password` | DEEP-LINK |
 | AUTH-10 | Indicateur de force du mot de passe + autovalidate | ⬜ | P-Basse | S | — | — |
@@ -263,7 +263,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 
 | ID | Titre | Statut | Prio | Taille | Notes | Deps |
 |----|-------|--------|------|--------|-------|------|
-| TECH-1 | Intercepteur 401 (logout auto + redirect) + `LogInterceptor` dev — **= AUTH-6, même travail** | ⬜ | P-Haute | M | débloque toute l'app authentifiée | — |
+| TECH-1 | Intercepteur 401 (logout auto + redirect) + `LogInterceptor` dev — **= AUTH-6, même travail** | ✅ | P-Haute | M | débloque toute l'app authentifiée | — |
 | TECH-2 | Intercepteur entête `X-Household-Id` (parité web) | ⬜ | P-Moy | S | utile seulement en multi-foyer | FOY-1 |
 | TECH-3 | Helpers de navigation typée (constantes routes partagées) | ⬜ | P-Moy | S | évite chaînes magiques | — |
 | TECH-4 | `errorBuilder` / route 404 dans go_router | ⬜ | P-Basse | S | — | — |
@@ -335,7 +335,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 | Chantier | Tickets | État | Note |
 |----------|---------|------|------|
 | **Fondations démo** | DEMO-1, ENV-1, SPLASH-1, BUILD-1 | ⬜ | **Bloquant soutenance** : réseau LAN + cleartext + seed + répétition sur device. Phase 0, jours 1-2. |
-| **401 (pas de refresh)** | TECH-1 (= AUTH-6), AUTH-7 | ⬜ | TECH-1 et AUTH-6 = même travail. AUTH-7 découplé, prioritaire. Absence de refresh-token **à confirmer côté backend**. |
+| **401 (pas de refresh)** | TECH-1 (= AUTH-6), AUTH-7 | ✅ | AUTH-7 (démarrage/hors-ligne) + AUTH-6/TECH-1 (401 runtime → logout) livrés. Absence de refresh-token **à confirmer côté backend**. |
 | **États UI** | UI-1, UI-2 | ⬜ | Prérequis de tous les écrans data ; UI-2 au moins partiel en Phase 0 (anti-stacktrace). |
 | **Sérialisation produit** | INV-0 | ⬜ | Prérequis explicite de tout write produit (modèle `Product` read-only vérifié). |
 | **Design System & thème** | DS-1, DS-2 | ⬜ | Source unique (zip DS), retrait hex en dur ; dark en Phase 3. |

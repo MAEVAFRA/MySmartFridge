@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -64,9 +66,8 @@ class AuthController extends Notifier<AuthState> {
     try {
       state = AuthAuthenticated(await _repo.me());
     } on DioException catch (e) {
-      final status = e.response?.statusCode;
-      if (status == 401 || status == 403) {
-        // Token refusé par le serveur : déconnexion.
+      if (isSessionExpiredError(e)) {
+        // Token refusé par le serveur (401) : déconnexion.
         await _tokenStorage.clearToken();
         state = const AuthUnauthenticated();
       } else {
@@ -105,6 +106,17 @@ class AuthController extends Notifier<AuthState> {
   Future<void> logout() async {
     await _repo.logout();
     state = const AuthUnauthenticated();
+  }
+
+  /// Réagit à un 401 reçu sur une requête authentifiée (token expiré ou
+  /// révoqué), depuis l'intercepteur Dio : on bascule en déconnecté — le
+  /// routeur renvoie alors vers le login — puis on efface le token
+  /// (best-effort). Idempotent : sans effet si déjà déconnecté, car plusieurs
+  /// requêtes peuvent échouer en même temps.
+  void handleUnauthorized() {
+    if (state is AuthUnauthenticated) return;
+    state = const AuthUnauthenticated();
+    unawaited(_tokenStorage.clearToken());
   }
 
   Future<String> forgotPassword(String email) => _repo.forgotPassword(email);
