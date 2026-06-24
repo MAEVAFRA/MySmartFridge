@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/expiry.dart';
+import '../../core/widgets/async_state_views.dart';
 import '../auth/application/auth_controller.dart';
-import 'dashboard_provider.dart';
 import '../inventory/domain/inventory_models.dart';
+import '../inventory/presentation/location_style.dart';
+import 'dashboard_provider.dart';
 
 /// Tableau de bord : salutation, foyer actif, produits à consommer vite,
 /// et répartition du stock par emplacement.
@@ -48,7 +51,8 @@ class HomeScreen extends ConsumerWidget {
       ),
       body: dashboard.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => _ErrorView(
+        error: (err, _) => ErrorRetryView(
+          title: 'Impossible de charger ton frigo',
           onRetry: () => ref.invalidate(dashboardProvider),
         ),
         data: (data) => RefreshIndicator(
@@ -156,7 +160,7 @@ class _ExpiringTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final date = product.expiresAt;
-    final days = date != null ? _daysLeft(date) : null;
+    final days = date != null ? daysUntilExpiry(date) : null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -193,11 +197,11 @@ class _ExpiringTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  _urgencyLabel(days),
+                  expiryLabel(days),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: _urgencyColor(days),
+                    color: expiryColor(days),
                   ),
                 ),
                 if (date != null) ...[
@@ -300,7 +304,7 @@ class _LocationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _locationColor(item.location);
+    final color = locationColor(item.location);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -336,92 +340,6 @@ class _LocationRow extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// État d'erreur
+// Helpers de péremption/couleur : voir `core/utils/expiry.dart` et
+// `inventory/presentation/location_style.dart` (partagés avec l'inventaire).
 // ---------------------------------------------------------------------------
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off_outlined,
-                size: 48, color: AppColors.textSecondary),
-            const SizedBox(height: 12),
-            const Text(
-              'Impossible de charger ton frigo',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Vérifie ta connexion et réessaie.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Réessayer'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-int _daysLeft(DateTime date) {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final target = DateTime(date.year, date.month, date.day);
-  return target.difference(today).inDays;
-}
-
-Color _urgencyColor(int days) {
-  if (days <= 1) return AppColors.urgencyExpired; // périmé, aujourd'hui, demain
-  if (days <= 3) return AppColors.urgencySoon;
-  return AppColors.urgencyWeek;
-}
-
-String _urgencyLabel(int days) {
-  if (days < 0) return 'Périmé depuis ${-days} j';
-  if (days == 0) return "Expire aujourd'hui";
-  if (days == 1) return 'Demain';
-  return 'Dans $days jours';
-}
-
-Color _locationColor(Location loc) {
-  final parsed = _parseHex(loc.colorHex);
-  if (parsed != null) return parsed;
-  switch (loc.type) {
-    case 'fridge':
-      return AppColors.fridge;
-    case 'freezer':
-      return AppColors.freezer;
-    case 'pantry':
-      return AppColors.pantry;
-    default:
-      return AppColors.primary;
-  }
-}
-
-Color? _parseHex(String? hex) {
-  if (hex == null || hex.isEmpty) return null;
-  var h = hex.replaceAll('#', '').trim();
-  if (h.length == 6) h = 'FF$h';
-  if (h.length != 8) return null;
-  final value = int.tryParse(h, radix: 16);
-  return value == null ? null : Color(value);
-}

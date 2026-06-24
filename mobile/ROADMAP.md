@@ -28,8 +28,8 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 ### Fonctionnel — très partiel
 - ✅ **Auth** : login, register, forgot-password, restauration de session (`/auth/me`), logout. Complet de bout en bout.
 - ✅ **Accueil/Dashboard** : agrégation **côté client par 3 round-trips** (produits, expirants, emplacements), salutation, sections "À consommer vite" + "Mon stock", pull-to-refresh, états async, logout. Complet (lecture seule, items non cliquables). *Note de conception : `GET /stats` existe déjà côté API et pourrait remplacer une partie de cette agrégation maison (voir STAT-1).*
-- ⚠️ **Inventaire** : couche data (`getProducts`, `getExpiring`, `getLocations`) + modèles `Product`/`Location`, mais **consommés uniquement par le dashboard**. L'écran est un stub.
-- ⬜ **Inventaire / Scanner / Courses / Plus** : 4 onglets sur 5 = `ComingSoonScreen` (placeholders).
+- ✅ **Inventaire (liste)** : écran réel — produits regroupés par emplacement (icône/couleur), badges de péremption, quantité/unité, états chargement/erreur/vide, pull-to-refresh (INV-1/INV-2/INV-4, UI-1). Recherche/tri/filtres et détail/ajout encore à faire (INV-3, INV-5+).
+- ⬜ **Scanner / Courses / Plus** : 3 onglets sur 5 = `ComingSoonScreen` (placeholders).
 
 ### Dettes / manques transverses identifiés (vérifiés dans le code)
 - ✅ **401 géré globalement** (AUTH-6/TECH-1, livré) : l'intercepteur Dio déconnecte automatiquement sur un 401 d'une requête authentifiée (endpoints d'auth publics exclus) et le routeur renvoie au login. `LogInterceptor` actif en debug (sans logguer le token).
@@ -87,10 +87,10 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 | ID | Titre | Statut | Prio | Taille | Endpoints | Deps |
 |----|-------|--------|------|--------|-----------|------|
 | INV-0 | **Étendre le modèle `Product` + sérialisation** : ajouter `toJson`, champs `barcode`, `category`/`categoryId`, `photo`, `quantity`/`unit`, `location` complet. Prérequis bloquant de tout write produit. | ⬜ | P-Haute | M | — (modèle) | — |
-| INV-1 | Provider d'état liste produits (`AsyncNotifier`) + états loading/erreur/vide | ⬜ | P-Haute | M | `GET /products` | UI-1 |
-| INV-2 | Écran Inventaire : liste produits avec badges péremption + icône/couleur emplacement | ⬜ | P-Haute | M | `GET /products`, `GET /locations` | INV-1 |
+| INV-1 | Provider d'état liste produits (`FutureProvider`) + états loading/erreur/vide | ✅ | P-Haute | M | `GET /products` | UI-1 |
+| INV-2 | Écran Inventaire : liste produits avec badges péremption + icône/couleur emplacement | ✅ | P-Haute | M | `GET /products`, `GET /locations` | INV-1 |
 | INV-3 | Recherche + tri + filtres (emplacement, péremption) | ⬜ | P-Moy | M | `GET /products` | INV-2 |
-| INV-4 | Pull-to-refresh inventaire | ⬜ | P-Moy | S | `GET /products` | INV-2 |
+| INV-4 | Pull-to-refresh inventaire | ✅ | P-Moy | S | `GET /products` | INV-2 |
 | INV-5 | Détail produit (route + écran) | ⬜ | P-Moy | M | `GET /products/:id` | INV-2 |
 | INV-6 | **Ajout produit** (bottom sheet formulaire, charge catégories + emplacements) | ⬜ | P-Haute | L | `POST /products`, `GET /locations`, `GET /categories` | INV-0, INV-2 |
 | INV-7 | Édition produit | ⬜ | P-Moy | M | `PUT /products/:id` | INV-6 |
@@ -272,7 +272,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 | TECH-7 | Réorganisation : découpler `core → features` dans le routeur | ⬜ | P-Basse | S | hygiène archi | — |
 | DS-1 | Tokens de style centralisés (tailles, durations, alphas) + retrait hex en dur | ⬜ | P-Moy | M | source unique avec le DS (zip) | — |
 | DS-2 | Dark theme + `themeMode` (suivi système) | ⬜ | P-Basse | M | — | DS-1 |
-| UI-1 | Widgets états réutilisables (loading/skeleton, erreur+retry, vide) | ⬜ | P-Haute | M | **base de tous les écrans data** | — |
+| UI-1 | Widgets états réutilisables (loading, erreur+retry, vide) | ✅ | P-Haute | M | **base de tous les écrans data** | — |
 | UI-2 | Gestion d'erreurs réseau différenciée (401/5xx/timeout/parse) + SnackBar globale | ⬜ | P-Haute | M | au moins partiel en Phase 0 (anti-stacktrace en démo) | TECH-1 |
 | UI-3 | Retour haptique (onglets, FAB, cochage, succès/échec) | ⬜ | P-Basse | S | — | — |
 | A11Y-1 | Accessibilité barre custom + écrans (`Semantics`, labels, états `selected`) | ⬜ | P-Basse | M | — | — |
