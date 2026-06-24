@@ -60,4 +60,63 @@ void main() {
       expect(groupProductsByLocation([], [fridge]), isEmpty);
     });
   });
+
+  group('ProductInput.toJson', () {
+    test('inclut les champs renseignés, omet les vides', () {
+      final json = const ProductInput(
+        name: 'Tomates',
+        locationId: '1',
+        categoryId: '2',
+        quantity: 3,
+        unit: 'pièce',
+      ).toJson();
+      expect(json['name'], 'Tomates');
+      expect(json['location_id'], '1');
+      expect(json['category_id'], '2');
+      expect(json['quantity'], 3);
+      expect(json['unit'], 'pièce');
+      expect(json.containsKey('expires_at'), isFalse);
+      expect(json.containsKey('barcode'), isFalse);
+    });
+
+    test('formate expires_at en YYYY-MM-DD', () {
+      final json = ProductInput(
+        name: 'Lait',
+        locationId: '1',
+        expiresAt: DateTime(2026, 7, 1),
+      ).toJson();
+      expect(json['expires_at'], '2026-07-01');
+    });
+
+    test('omet quantité nulle et unité vide', () {
+      final json =
+          const ProductInput(name: 'X', locationId: '1', unit: '').toJson();
+      expect(json.containsKey('quantity'), isFalse);
+      expect(json.containsKey('unit'), isFalse);
+    });
+  });
+
+  group('Product.fromJson', () {
+    test('lit les champs et la catégorie imbriquée', () {
+      final product = Product.fromJson({
+        'id': 5,
+        'name': 'Champignons',
+        'location_id': 1,
+        'category_id': 1,
+        'location': {'id': 1, 'name': 'Frigo'},
+        'category': {'id': 1, 'name': 'Légumes', 'icon': '🥦'},
+        'quantity': 50,
+        'unit': 'g',
+        'expires_at': '2026-04-28',
+      });
+      expect(product.locationId, '1');
+      expect(product.locationName, 'Frigo');
+      expect(product.categoryId, '1');
+      expect(product.categoryName, 'Légumes');
+      expect(product.categoryIcon, '🥦');
+      expect(product.quantity, 50);
+      expect(product.unit, 'g');
+      expect(product.expiresAt, DateTime(2026, 4, 28));
+    });
+  });
 }

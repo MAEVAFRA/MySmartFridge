@@ -36,6 +36,19 @@ class InventoryRepository {
         .map((e) => Location.fromJson(e as Map<String, dynamic>))
         .toList();
   }
+
+  Future<List<Category>> getCategories() async {
+    final res = await _dio.get('/categories');
+    return (res.data as List)
+        .map((e) => Category.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Crée un produit. Le backend renvoie le produit complet (201) ; on n'en a
+  /// pas besoin ici (la liste est rechargée par l'appelant).
+  Future<void> createProduct(ProductInput input) async {
+    await _dio.post('/products', data: input.toJson());
+  }
 }
 
 final inventoryRepositoryProvider = Provider<InventoryRepository>(

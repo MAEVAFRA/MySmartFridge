@@ -23,6 +23,26 @@ final inventoryProvider = FutureProvider.autoDispose<InventoryData>((ref) async 
   );
 });
 
+/// Données nécessaires au formulaire d'ajout : emplacements + catégories.
+class AddProductFormData {
+  const AddProductFormData({required this.locations, required this.categories});
+
+  final List<Location> locations;
+  final List<Category> categories;
+}
+
+/// Charge en parallèle emplacements et catégories pour le formulaire d'ajout.
+final addProductFormDataProvider =
+    FutureProvider.autoDispose<AddProductFormData>((ref) async {
+  final repo = ref.read(inventoryRepositoryProvider);
+  final locationsFuture = repo.getLocations();
+  final categoriesFuture = repo.getCategories();
+  return AddProductFormData(
+    locations: await locationsFuture,
+    categories: await categoriesFuture,
+  );
+});
+
 /// Un groupe de produits rattachés à un même emplacement (ou « Autres »).
 class InventoryGroup {
   const InventoryGroup({

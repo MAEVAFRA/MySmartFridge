@@ -34,7 +34,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 ### Dettes / manques transverses identifiés (vérifiés dans le code)
 - ✅ **401 géré globalement** (AUTH-6/TECH-1, livré) : l'intercepteur Dio déconnecte automatiquement sur un 401 d'une requête authentifiée (endpoints d'auth publics exclus) et le routeur renvoie au login. `LogInterceptor` actif en debug (sans logguer le token).
 - ✅ **`_loadSession` ne déconnecte plus sur coupure réseau** (AUTH-7, livré) : 401/403 ou token localement expiré → déconnexion ; réseau/timeout/erreur transitoire → session conservée en mode dégradé (identité minimale reconstruite depuis le JWT). Reste à faire : l'intercepteur 401 global (AUTH-6/TECH-1).
-- ⚠️ **Modèle `Product` (inventory_models.dart) read-only** : pas de `toJson`, et absence des champs `barcode`, `category`, `photo`, `quantity`/`unit` en écriture, location réduite à `id`/`name`. L'ajout/édition produit exige d'abord d'étendre le modèle + sérialisation (voir INV-0).
+- ✅ **Modèle `Product` étendu + écriture** (INV-0) : champs `barcode`/`brand`/`category`/`notes` lus, et `ProductInput.toJson` pour la création (`POST /products`). Reste : `photo` (INV-10).
 - ⚠️ **Register** : `RegisterScreen` collecte Prénom + Nom puis les **concatène en un seul champ `name` non réversible** (register_screen.dart l.42-43). PROF-2 héritera de ce champ fusionné — choix à acter (voir AUTH-11).
 - ⚠️ **`X-Household-Id` absent côté mobile** alors que le web l'injecte sur chaque requête. Le backend retombe par défaut sur le **premier foyer** (`households` ordonnés par `joined_at`) → un compte **mono-foyer fonctionne déjà de bout en bout sans ce header**. Le `households.first` côté mobile actuel ne sert qu'à afficher le **nom du foyer dans l'AppBar** (cosmétique), il ne scope pas les données.
 - ⚠️ Pas de darkTheme/themeMode, pas de retour haptique, accessibilité minimale (barre custom sans `Semantics`).
@@ -86,13 +86,13 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 
 | ID | Titre | Statut | Prio | Taille | Endpoints | Deps |
 |----|-------|--------|------|--------|-----------|------|
-| INV-0 | **Étendre le modèle `Product` + sérialisation** : ajouter `toJson`, champs `barcode`, `category`/`categoryId`, `photo`, `quantity`/`unit`, `location` complet. Prérequis bloquant de tout write produit. | ⬜ | P-Haute | M | — (modèle) | — |
+| INV-0 | **Étendre le modèle `Product` + sérialisation** : `ProductInput.toJson`, champs `barcode`/`brand`/`category`/`categoryIcon`/`notes` lus. (`photo` → INV-10.) | ✅ | P-Haute | M | — (modèle) | — |
 | INV-1 | Provider d'état liste produits (`FutureProvider`) + états loading/erreur/vide | ✅ | P-Haute | M | `GET /products` | UI-1 |
 | INV-2 | Écran Inventaire : liste produits avec badges péremption + icône/couleur emplacement | ✅ | P-Haute | M | `GET /products`, `GET /locations` | INV-1 |
 | INV-3 | Recherche + tri + filtres (emplacement, péremption) | ⬜ | P-Moy | M | `GET /products` | INV-2 |
 | INV-4 | Pull-to-refresh inventaire | ✅ | P-Moy | S | `GET /products` | INV-2 |
 | INV-5 | Détail produit (route + écran) | ⬜ | P-Moy | M | `GET /products/:id` | INV-2 |
-| INV-6 | **Ajout produit** (bottom sheet formulaire, charge catégories + emplacements) | ⬜ | P-Haute | L | `POST /products`, `GET /locations`, `GET /categories` | INV-0, INV-2 |
+| INV-6 | **Ajout produit** (bottom sheet formulaire, charge catégories + emplacements) | ✅ | P-Haute | L | `POST /products`, `GET /locations`, `GET /categories` | INV-0, INV-2 |
 | INV-7 | Édition produit | ⬜ | P-Moy | M | `PUT /products/:id` | INV-6 |
 | INV-8 | Retrait/suppression produit avec motif (consommé/jeté/retiré) → stats gaspillage | ⬜ | P-Moy | M | `DELETE /products/:id` (body `{reason}`) | INV-5 |
 | INV-9 | Estimation auto date péremption (catégorie + type emplacement) | ⬜ | P-Basse | M | `GET /categories` | INV-6 |

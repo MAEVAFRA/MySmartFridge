@@ -25,7 +25,31 @@ class Location {
   }
 }
 
-/// Produit en stock. Le champ `location` est imbriqué côté API.
+/// Catégorie de produit (légumes, produits laitiers…).
+class Category {
+  const Category({
+    required this.id,
+    required this.name,
+    this.icon,
+    this.colorHex,
+  });
+
+  final String id;
+  final String name;
+  final String? icon;
+  final String? colorHex;
+
+  factory Category.fromJson(Map<String, dynamic> json) {
+    return Category(
+      id: json['id'].toString(),
+      name: json['name'] as String? ?? '',
+      icon: json['icon'] as String?,
+      colorHex: json['color'] as String?,
+    );
+  }
+}
+
+/// Produit en stock. Les champs `location` et `category` sont imbriqués côté API.
 class Product {
   const Product({
     required this.id,
@@ -35,6 +59,12 @@ class Product {
     this.locationName,
     this.quantity,
     this.unit,
+    this.barcode,
+    this.brand,
+    this.categoryId,
+    this.categoryName,
+    this.categoryIcon,
+    this.notes,
   });
 
   final String id;
@@ -44,9 +74,16 @@ class Product {
   final String? locationName;
   final num? quantity;
   final String? unit;
+  final String? barcode;
+  final String? brand;
+  final String? categoryId;
+  final String? categoryName;
+  final String? categoryIcon;
+  final String? notes;
 
   factory Product.fromJson(Map<String, dynamic> json) {
     final loc = json['location'];
+    final cat = json['category'];
     return Product(
       id: json['id'].toString(),
       name: json['name'] as String? ?? '',
@@ -57,6 +94,55 @@ class Product {
       locationName: loc is Map<String, dynamic> ? loc['name'] as String? : null,
       quantity: json['quantity'] as num?,
       unit: json['unit'] as String?,
+      barcode: json['barcode'] as String?,
+      brand: json['brand'] as String?,
+      categoryId: json['category_id']?.toString(),
+      categoryName: cat is Map<String, dynamic> ? cat['name'] as String? : null,
+      categoryIcon: cat is Map<String, dynamic> ? cat['icon'] as String? : null,
+      notes: json['notes'] as String?,
     );
   }
 }
+
+/// Données saisies pour créer (ou éditer) un produit, sérialisées pour l'API.
+/// On n'envoie que les champs renseignés ; si `expiresAt` est nul mais qu'une
+/// catégorie est fournie, le backend estime la date de péremption.
+class ProductInput {
+  const ProductInput({
+    required this.name,
+    required this.locationId,
+    this.categoryId,
+    this.quantity,
+    this.unit,
+    this.expiresAt,
+    this.barcode,
+    this.brand,
+    this.notes,
+  });
+
+  final String name;
+  final String locationId;
+  final String? categoryId;
+  final num? quantity;
+  final String? unit;
+  final DateTime? expiresAt;
+  final String? barcode;
+  final String? brand;
+  final String? notes;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'location_id': locationId,
+        if (categoryId != null) 'category_id': categoryId,
+        if (quantity != null) 'quantity': quantity,
+        if (unit != null && unit!.isNotEmpty) 'unit': unit,
+        if (expiresAt != null) 'expires_at': _formatYmd(expiresAt!),
+        if (barcode != null && barcode!.isNotEmpty) 'barcode': barcode,
+        if (brand != null && brand!.isNotEmpty) 'brand': brand,
+        if (notes != null && notes!.isNotEmpty) 'notes': notes,
+      };
+}
+
+/// Formate une date en `YYYY-MM-DD` (format attendu par l'API pour `expires_at`).
+String _formatYmd(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';

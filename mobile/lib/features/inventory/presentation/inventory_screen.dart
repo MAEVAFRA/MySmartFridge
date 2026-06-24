@@ -7,6 +7,7 @@ import '../../../core/utils/expiry.dart';
 import '../../../core/widgets/async_state_views.dart';
 import '../application/inventory_providers.dart';
 import '../domain/inventory_models.dart';
+import 'add_product_sheet.dart';
 import 'location_style.dart';
 
 /// Onglet Inventaire : la liste des produits en stock, regroupés par
@@ -40,6 +41,11 @@ class InventoryScreen extends ConsumerWidget {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => showAddProductSheet(context),
+        tooltip: 'Ajouter un produit',
+        child: const Icon(Icons.add),
+      ),
       body: inventory.when(
         loading: () => const LoadingView(),
         error: (_, _) => ErrorRetryView(
@@ -57,12 +63,19 @@ class InventoryScreen extends ConsumerWidget {
                 ? ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     children: [
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.22),
+                      SizedBox(height: MediaQuery.of(context).size.height * 0.18),
                       const EmptyView(
                         icon: Icons.inventory_2_outlined,
                         title: 'Ton inventaire est vide',
-                        message:
-                            'Ajoute des produits depuis le scanner ou manuellement (bientôt disponible).',
+                        message: 'Ajoute ton premier produit pour commencer.',
+                      ),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: FilledButton.icon(
+                          onPressed: () => showAddProductSheet(context),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Ajouter un produit'),
+                        ),
                       ),
                     ],
                   )
@@ -165,6 +178,10 @@ class _ProductRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
+          if (product.categoryIcon != null) ...[
+            Text(product.categoryIcon!, style: const TextStyle(fontSize: 18)),
+            const SizedBox(width: 10),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
