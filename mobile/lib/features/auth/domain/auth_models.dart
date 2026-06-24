@@ -1,3 +1,5 @@
+import 'jwt.dart';
+
 /// Foyer auquel l'utilisateur appartient (renvoyé par l'API d'authentification).
 class Household {
   const Household({required this.id, required this.name, required this.role});
@@ -44,4 +46,28 @@ class User {
           const [],
     );
   }
+
+  /// Identité minimale reconstruite depuis le JWT stocké, pour rester connecté
+  /// en mode dégradé hors-ligne. Le nom est dérivé de l'email faute de mieux ;
+  /// le profil complet (nom réel, foyers) est rechargé via `/auth/me` au retour
+  /// du réseau.
+  factory User.fromJwt(JwtPayload payload) {
+    final email = payload.email ?? '';
+    return User(
+      id: payload.id ?? '',
+      name: _displayNameFromEmail(email),
+      email: email,
+    );
+  }
+}
+
+/// Transforme la partie locale d'un email en nom affichable.
+/// `omar.amri@x.com` → `Omar Amri`, `alice@demo.com` → `Alice`.
+String _displayNameFromEmail(String email) {
+  final local = email.split('@').first;
+  return local
+      .split(RegExp(r'[._-]+'))
+      .where((part) => part.isNotEmpty)
+      .map((part) => part[0].toUpperCase() + part.substring(1))
+      .join(' ');
 }
