@@ -11,8 +11,8 @@ import 'add_product_sheet.dart';
 import 'location_style.dart';
 
 /// Onglet Inventaire : la liste des produits en stock, regroupés par
-/// emplacement, avec badge de péremption. Lecture seule pour l'instant
-/// (ajout/édition/recherche à venir).
+/// emplacement, avec badge de péremption, recherche, filtres (emplacement /
+/// péremption) et tri. Lecture seule pour l'instant (édition à venir).
 class InventoryScreen extends ConsumerWidget {
   const InventoryScreen({super.key});
 
@@ -53,41 +53,357 @@ class InventoryScreen extends ConsumerWidget {
           onRetry: () => ref.invalidate(inventoryProvider),
         ),
         data: (data) {
-          final groups = groupProductsByLocation(data.products, data.locations);
-          return RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(inventoryProvider);
-              await ref.read(inventoryProvider.future);
-            },
-            child: groups.isEmpty
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [
-                      SizedBox(height: MediaQuery.of(context).size.height * 0.18),
-                      const EmptyView(
-                        icon: Icons.inventory_2_outlined,
-                        title: 'Ton inventaire est vide',
-                        message: 'Ajoute ton premier produit pour commencer.',
-                      ),
-                      const SizedBox(height: 16),
-                      Center(
-                        child: FilledButton.icon(
-                          onPressed: () => showAddProductSheet(context),
-                          icon: const Icon(Icons.add),
-                          label: const Text('Ajouter un produit'),
-                        ),
-                      ),
-                    ],
-                  )
-                : ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    itemCount: groups.length,
-                    itemBuilder: (_, i) => _LocationGroupCard(group: groups[i]),
+          // Inventaire réellement vide : pas de filtres à afficher, on invite
+          // directement à ajouter un produit.
+          if (data.products.isEmpty) {
+            return RefreshIndicator(
+              onRefresh: () => _refresh(ref),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.18),
+                  const EmptyView(
+                    icon: Icons.inventory_2_outlined,
+                    title: 'Ton inventaire est vide',
+                    message: 'Ajoute ton premier produit pour commencer.',
                   ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: FilledButton.icon(
+                      onPressed: () => showAddProductSheet(context),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Ajouter un produit'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final filters = ref.watch(inventoryFiltersProvider);
+          final view = buildInventoryView(data, filters);
+          return Column(
+            children: [
+              _InventoryControls(locations: data.locations),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () => _refresh(ref),
+                  child: view.groups.isEmpty
+                      ? _NoResultsView(
+                          onReset: () => ref
+                              .read(inventoryFiltersProvider.notifier)
+                              .clear(),
+                        )
+                      : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(16),
+                          itemCount: view.groups.length,
+                          itemBuilder: (_, i) =>
+                              _LocationGroupCard(group: view.groups[i]),
+                        ),
+                ),
+              ),
+            ],
           );
         },
       ),
+    );
+  }
+
+  Future<void> _refresh(WidgetRef ref) async {
+    ref.invalidate(inventoryProvider);
+    await ref.read(inventoryProvider.future);
+  }
+}
+
+/// Barre de contrôles de l'inventaire : recherche, tri, et filtres par
+/// emplacement et par état de péremption.
+class _InventoryControls extends ConsumerWidget {
+  const _InventoryControls({required this.locations});
+
+  final List<Location> locations;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filters = ref.watch(inventoryFiltersProvider);
+    final notifier = ref.read(inventoryFiltersProvider.notifier);
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: _SearchField(notifier: notifier)),
+              _SortButton(
+                current: filters.sort,
+                onSelected: notifier.setSort,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Filtres péremption (axe « état ») puis emplacements (axe « lieu »),
+          // sur une même rangée défilante.
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.only(right: 8),
+            child: Row(
+              children: [
+                _ExpiryChip(
+                  label: 'Bientôt',
+                  value: ExpiryFilter.soon,
+                  current: filters.expiry,
+                  color: AppColors.urgencySoon,
+                  onSelected: notifier.setExpiry,
+                ),
+                const SizedBox(width: 8),
+                _ExpiryChip(
+                  label: 'Périmés',
+                  value: ExpiryFilter.expired,
+                  current: filters.expiry,
+                  color: AppColors.urgencyExpired,
+                  onSelected: notifier.setExpiry,
+                ),
+                if (locations.isNotEmpty) ...[
+                  const _ChipDivider(),
+                  _LocationChip(
+                    label: 'Tous',
+                    locationId: null,
+                    current: filters.locationId,
+                    onSelected: notifier.setLocation,
+                  ),
+                  for (final location in locations) ...[
+                    const SizedBox(width: 8),
+                    _LocationChip(
+                      label: location.name,
+                      icon: location.icon,
+                      locationId: location.id,
+                      current: filters.locationId,
+                      color: locationColor(location),
+                      onSelected: notifier.setLocation,
+                    ),
+                  ],
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchField extends StatefulWidget {
+  const _SearchField({required this.notifier});
+
+  final InventoryFiltersNotifier notifier;
+
+  @override
+  State<_SearchField> createState() => _SearchFieldState();
+}
+
+class _SearchFieldState extends State<_SearchField> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      textInputAction: TextInputAction.search,
+      onChanged: (value) {
+        widget.notifier.setSearch(value);
+        // Affiche/masque le bouton d'effacement au fil de la saisie.
+        setState(() {});
+      },
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: 'Rechercher un produit…',
+        prefixIcon: const Icon(Icons.search, size: 20),
+        suffixIcon: _controller.text.isEmpty
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                tooltip: 'Effacer',
+                onPressed: () {
+                  _controller.clear();
+                  widget.notifier.setSearch('');
+                  setState(() {});
+                },
+              ),
+        filled: true,
+        fillColor: AppColors.background,
+        contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+      ),
+      onTapOutside: (_) => FocusScope.of(context).unfocus(),
+    );
+  }
+}
+
+class _SortButton extends StatelessWidget {
+  const _SortButton({required this.current, required this.onSelected});
+
+  final InventorySort current;
+  final ValueChanged<InventorySort> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<InventorySort>(
+      icon: const Icon(Icons.sort),
+      tooltip: 'Trier',
+      initialValue: current,
+      onSelected: onSelected,
+      itemBuilder: (_) => const [
+        PopupMenuItem(
+          value: InventorySort.expiry,
+          child: Text('Péremption (urgent d\'abord)'),
+        ),
+        PopupMenuItem(
+          value: InventorySort.name,
+          child: Text('Nom (A → Z)'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Puce de filtre par état de péremption (sélection unique, re-cliquer
+/// désélectionne et revient à « tous »).
+class _ExpiryChip extends StatelessWidget {
+  const _ExpiryChip({
+    required this.label,
+    required this.value,
+    required this.current,
+    required this.color,
+    required this.onSelected,
+  });
+
+  final String label;
+  final ExpiryFilter value;
+  final ExpiryFilter current;
+  final Color color;
+  final ValueChanged<ExpiryFilter> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = current == value;
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) =>
+          onSelected(selected ? ExpiryFilter.all : value),
+      showCheckmark: false,
+      avatar: Icon(Icons.circle, size: 10, color: color),
+      selectedColor: color.withValues(alpha: 0.15),
+      side: BorderSide(color: selected ? color : AppColors.border),
+      labelStyle: TextStyle(
+        fontWeight: FontWeight.w600,
+        color: selected ? color : AppColors.textPrimary,
+      ),
+      backgroundColor: AppColors.surface,
+    );
+  }
+}
+
+/// Puce de filtre par emplacement (`null` = tous les emplacements).
+class _LocationChip extends StatelessWidget {
+  const _LocationChip({
+    required this.label,
+    required this.locationId,
+    required this.current,
+    required this.onSelected,
+    this.icon,
+    this.color = AppColors.primary,
+  });
+
+  final String label;
+  final String? icon;
+  final String? locationId;
+  final String? current;
+  final Color color;
+  final ValueChanged<String?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = current == locationId;
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onSelected(selected && locationId != null ? null : locationId),
+      showCheckmark: locationId == null,
+      avatar: icon != null
+          ? Text(icon!, style: const TextStyle(fontSize: 14))
+          : null,
+      selectedColor: color.withValues(alpha: 0.15),
+      side: BorderSide(color: selected ? color : AppColors.border),
+      labelStyle: TextStyle(
+        fontWeight: FontWeight.w600,
+        color: selected ? color : AppColors.textPrimary,
+      ),
+      backgroundColor: AppColors.surface,
+    );
+  }
+}
+
+/// Petit séparateur vertical entre les deux axes de filtres.
+class _ChipDivider extends StatelessWidget {
+  const _ChipDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 24,
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      color: AppColors.border,
+    );
+  }
+}
+
+/// Affiché quand les filtres ne renvoient aucun produit.
+class _NoResultsView extends StatelessWidget {
+  const _NoResultsView({required this.onReset});
+
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.12),
+        const EmptyView(
+          icon: Icons.search_off,
+          title: 'Aucun produit ne correspond',
+          message: 'Essaie de modifier ta recherche ou tes filtres.',
+        ),
+        const SizedBox(height: 16),
+        Center(
+          child: TextButton.icon(
+            onPressed: onReset,
+            icon: const Icon(Icons.filter_alt_off),
+            label: const Text('Réinitialiser les filtres'),
+          ),
+        ),
+      ],
     );
   }
 }
