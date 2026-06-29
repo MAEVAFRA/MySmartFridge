@@ -114,7 +114,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 |----|-------|--------|------|--------|-----------|------|
 | HOME-1 | Dashboard (comptage par emplacement, expirants top 5, salutation) | ✅ | P-Haute | M | `GET /products`, `GET /products/expiring?days=7`, `GET /locations` | — |
 | HOME-2 | Pull-to-refresh + états async | ✅ | P-Moy | S | idem | — |
-| HOME-3 | Rendre tuiles produit / lignes emplacement cliquables (→ détail/inventaire) | ⬜ | P-Moy | S | — | INV-5, INV-2 |
+| HOME-3 | Rendre tuiles produit / lignes emplacement cliquables (→ détail/inventaire) | ✅ | P-Moy | S | — | INV-5, INV-2 |
 | HOME-4 | Confirmation logout (dialog natif) — *cosmétique : le logout existe déjà* | ⬜ | P-Basse | S | — | — |
 | HOME-5 | Actions rapides (Ajouter produit / Scanner) sur le dashboard | ⬜ | P-Basse | S | — | INV-6, SCAN-1 |
 | HOME-6 | Lien "voir tout" expirants → écran Péremptions | ⬜ | P-Basse | S | `GET /products/expiring?days=:n` | EXP-1 |

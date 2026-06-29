@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/expiry.dart';
 import '../../core/widgets/async_state_views.dart';
 import '../auth/application/auth_controller.dart';
+import '../inventory/application/inventory_providers.dart';
 import '../inventory/domain/inventory_models.dart';
 import '../inventory/presentation/location_style.dart';
 import 'dashboard_provider.dart';
@@ -162,58 +164,71 @@ class _ExpiringTile extends StatelessWidget {
     final date = product.expiresAt;
     final days = date != null ? daysUntilExpiry(date) : null;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          // Raccourci vers la fiche produit (HOME-3 → INV-5).
+          onTap: () => context.go('/inventory/product/${product.id}',
+              extra: product),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
               children: [
-                Text(
-                  product.name,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                ),
-                if (product.locationName != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    product.locationName!,
-                    style: const TextStyle(
-                        fontSize: 12.5, color: AppColors.textSecondary),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.name,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary),
+                      ),
+                      if (product.locationName != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          product.locationName!,
+                          style: const TextStyle(
+                              fontSize: 12.5, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
+                ),
+                const SizedBox(width: 8),
+                if (days != null)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        expiryLabel(days),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: expiryColor(days),
+                        ),
+                      ),
+                      if (date != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          DateFormat('dd/MM/yyyy').format(date),
+                          style: const TextStyle(
+                              fontSize: 11, color: Color(0xFF94A3B8)),
+                        ),
+                      ],
+                    ],
+                  ),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right,
+                    size: 18, color: AppColors.neutral400),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          if (days != null)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  expiryLabel(days),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: expiryColor(days),
-                  ),
-                ),
-                if (date != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    DateFormat('dd/MM/yyyy').format(date),
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                  ),
-                ],
-              ],
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -297,43 +312,56 @@ class _StockSection extends StatelessWidget {
   }
 }
 
-class _LocationRow extends StatelessWidget {
+class _LocationRow extends ConsumerWidget {
   const _LocationRow({required this.item});
 
   final LocationCount item;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final color = locationColor(item.location);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
+    return InkWell(
+      // Ouvre l'inventaire pré-filtré sur cet emplacement (HOME-3 → INV-3).
+      onTap: () {
+        ref
+            .read(inventoryFiltersProvider.notifier)
+            .setLocation(item.location.id);
+        context.go('/inventory');
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              alignment: Alignment.center,
+              child: item.location.icon != null
+                  ? Text(item.location.icon!,
+                      style: const TextStyle(fontSize: 18))
+                  : Icon(Icons.inventory_2_outlined, size: 20, color: color),
             ),
-            alignment: Alignment.center,
-            child: item.location.icon != null
-                ? Text(item.location.icon!, style: const TextStyle(fontSize: 18))
-                : Icon(Icons.inventory_2_outlined, size: 20, color: color),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              item.location.name,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                item.location.name,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
-          ),
-          Text(
-            '${item.count}',
-            style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.bold, color: color),
-          ),
-        ],
+            Text(
+              '${item.count}',
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.bold, color: color),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right,
+                size: 18, color: AppColors.neutral400),
+          ],
+        ),
       ),
     );
   }
