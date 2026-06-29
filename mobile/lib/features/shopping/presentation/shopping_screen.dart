@@ -1,16 +1,326 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../shell/presentation/coming_soon_screen.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/async_state_views.dart';
+import '../application/shopping_providers.dart';
+import '../domain/shopping_models.dart';
 
-class ShoppingScreen extends StatelessWidget {
+/// Liste de courses active sélectionnée par l'utilisateur (`null` → liste par
+/// défaut / première liste).
+class SelectedListId extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void select(String id) => state = id;
+}
+
+final selectedListIdProvider =
+    NotifierProvider<SelectedListId, String?>(SelectedListId.new);
+
+/// Onglet Courses : listes du foyer, articles cochables en magasin.
+class ShoppingScreen extends ConsumerWidget {
   const ShoppingScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const ComingSoonScreen(
-      title: 'Courses',
-      icon: Icons.shopping_cart_outlined,
-      message: 'Tes listes de courses partagées, cochables en magasin.',
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lists = ref.watch(shoppingListsProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Courses',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
+      body: lists.when(
+        loading: () => const LoadingView(),
+        error: (_, _) => ErrorRetryView(
+          title: 'Impossible de charger tes listes',
+          onRetry: () => ref.invalidate(shoppingListsProvider),
+        ),
+        data: (data) {
+          if (data.isEmpty) {
+            return RefreshIndicator(
+              onRefresh: () => _refresh(ref),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                  const EmptyView(
+                    icon: Icons.shopping_cart_outlined,
+                    title: 'Aucune liste de courses',
+                    message: 'Crée ta première liste pour commencer.',
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final active = _activeList(data, ref.watch(selectedListIdProvider));
+          return Column(
+            children: [
+              _ListSelector(lists: data, activeId: active.id),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () => _refresh(ref),
+                  child: _ListContent(list: active),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
+
+  Future<void> _refresh(WidgetRef ref) async {
+    ref.invalidate(shoppingListsProvider);
+    await ref.read(shoppingListsProvider.future);
+  }
+
+  /// La liste active : celle sélectionnée si elle existe encore, sinon la liste
+  /// par défaut, sinon la première.
+  ShoppingList _activeList(List<ShoppingList> lists, String? selectedId) {
+    if (selectedId != null) {
+      for (final l in lists) {
+        if (l.id == selectedId) return l;
+      }
+    }
+    return lists.firstWhere((l) => l.isDefault, orElse: () => lists.first);
+  }
+}
+
+/// Sélecteur horizontal des listes (puce par liste + compteur d'articles).
+class _ListSelector extends ConsumerWidget {
+  const _ListSelector({required this.lists, required this.activeId});
+
+  final List<ShoppingList> lists;
+  final String activeId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Row(
+          children: [
+            for (final list in lists) ...[
+              ChoiceChip(
+                label: Text('${list.name}  ·  ${list.totalCount}'),
+                selected: list.id == activeId,
+                onSelected: (_) =>
+                    ref.read(selectedListIdProvider.notifier).select(list.id),
+                selectedColor: AppColors.primaryLight,
+                labelStyle: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: list.id == activeId
+                      ? AppColors.primaryDark
+                      : AppColors.textPrimary,
+                ),
+                side: BorderSide(
+                  color: list.id == activeId
+                      ? AppColors.primary
+                      : AppColors.border,
+                ),
+                backgroundColor: AppColors.surface,
+              ),
+              const SizedBox(width: 8),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Contenu d'une liste : compteur de progression + articles à acheter / cochés.
+class _ListContent extends StatelessWidget {
+  const _ListContent({required this.list});
+
+  final ShoppingList list;
+
+  @override
+  Widget build(BuildContext context) {
+    if (list.items.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+          const EmptyView(
+            icon: Icons.add_shopping_cart,
+            title: 'Liste vide',
+            message: 'Ajoute des articles à acheter.',
+          ),
+        ],
+      );
+    }
+
+    final toBuy = list.items.where((i) => !i.checked).toList();
+    final inCart = list.items.where((i) => i.checked).toList();
+
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        _ProgressHeader(checked: list.checkedCount, total: list.totalCount),
+        const SizedBox(height: 16),
+        if (toBuy.isNotEmpty) ...[
+          _SectionLabel('À acheter (${toBuy.length})'),
+          const SizedBox(height: 8),
+          _ItemsCard(items: toBuy),
+        ],
+        if (inCart.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          _SectionLabel('Dans le panier (${inCart.length})'),
+          const SizedBox(height: 8),
+          _ItemsCard(items: inCart),
+        ],
+      ],
+    );
+  }
+}
+
+class _ProgressHeader extends StatelessWidget {
+  const _ProgressHeader({required this.checked, required this.total});
+
+  final int checked;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = total == 0 ? 0.0 : checked / total;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.shopping_cart_outlined,
+                size: 18, color: AppColors.textSecondary),
+            const SizedBox(width: 8),
+            Text(
+              '$checked / $total coché${checked > 1 ? 's' : ''}',
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: ratio,
+            minHeight: 8,
+            backgroundColor: AppColors.border,
+            valueColor: const AlwaysStoppedAnimation(AppColors.success),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.bold,
+        color: AppColors.textSecondary,
+        letterSpacing: 0.3,
+      ),
+    );
+  }
+}
+
+class _ItemsCard extends StatelessWidget {
+  const _ItemsCard({required this.items});
+
+  final List<ShoppingItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0)
+              const Divider(
+                  height: 1,
+                  indent: 16,
+                  endIndent: 16,
+                  color: AppColors.border),
+            _ItemRow(item: items[i]),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ItemRow extends StatelessWidget {
+  const _ItemRow({required this.item});
+
+  final ShoppingItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final qty = _formatQuantity(item);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Icon(
+            item.checked ? Icons.check_circle : Icons.radio_button_unchecked,
+            color: item.checked ? AppColors.success : AppColors.neutral400,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              item.name,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: item.checked
+                    ? AppColors.textSecondary
+                    : AppColors.textPrimary,
+                decoration: item.checked ? TextDecoration.lineThrough : null,
+              ),
+            ),
+          ),
+          if (qty != null)
+            Text(
+              qty,
+              style: const TextStyle(
+                  fontSize: 13, color: AppColors.textSecondary),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Quantité formatée (« 2 unité », « 500 g »…) ou `null`.
+String? _formatQuantity(ShoppingItem item) {
+  final quantity = item.quantity;
+  if (quantity == null) return null;
+  final value =
+      quantity % 1 == 0 ? quantity.toInt().toString() : quantity.toString();
+  final unit = item.unit;
+  return (unit != null && unit.isNotEmpty) ? '$value $unit' : value;
 }
