@@ -7,7 +7,9 @@ import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/home/home_screen.dart';
+import '../../features/inventory/domain/inventory_models.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
+import '../../features/inventory/presentation/product_detail_screen.dart';
 import '../../features/more/presentation/more_screen.dart';
 import '../../features/scanner/presentation/scanner_screen.dart';
 import '../../features/shell/presentation/app_shell.dart';
@@ -93,9 +95,22 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(
-                path: _inventory,
-                name: 'inventory',
-                builder: (_, _) => const InventoryScreen()),
+              path: _inventory,
+              name: 'inventory',
+              builder: (_, _) => const InventoryScreen(),
+              routes: [
+                GoRoute(
+                  path: 'product/:id',
+                  name: 'product-detail',
+                  builder: (_, state) => ProductDetailScreen(
+                    productId: state.pathParameters['id']!,
+                    initial: state.extra is Product
+                        ? state.extra as Product
+                        : null,
+                  ),
+                ),
+              ],
+            ),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(

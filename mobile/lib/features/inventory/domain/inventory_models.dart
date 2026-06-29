@@ -57,6 +57,9 @@ class Product {
     this.expiresAt,
     this.locationId,
     this.locationName,
+    this.locationIcon,
+    this.locationColorHex,
+    this.locationType,
     this.quantity,
     this.unit,
     this.barcode,
@@ -64,7 +67,10 @@ class Product {
     this.categoryId,
     this.categoryName,
     this.categoryIcon,
+    this.categoryColorHex,
+    this.price,
     this.notes,
+    this.createdAt,
   });
 
   final String id;
@@ -72,6 +78,9 @@ class Product {
   final DateTime? expiresAt;
   final String? locationId;
   final String? locationName;
+  final String? locationIcon;
+  final String? locationColorHex;
+  final String? locationType;
   final num? quantity;
   final String? unit;
   final String? barcode;
@@ -79,11 +88,16 @@ class Product {
   final String? categoryId;
   final String? categoryName;
   final String? categoryIcon;
+  final String? categoryColorHex;
+  final num? price;
   final String? notes;
+  final DateTime? createdAt;
 
   factory Product.fromJson(Map<String, dynamic> json) {
     final loc = json['location'];
     final cat = json['category'];
+    final isLoc = loc is Map<String, dynamic>;
+    final isCat = cat is Map<String, dynamic>;
     return Product(
       id: json['id'].toString(),
       name: json['name'] as String? ?? '',
@@ -91,15 +105,23 @@ class Product {
           ? DateTime.tryParse(json['expires_at'].toString())
           : null,
       locationId: json['location_id']?.toString(),
-      locationName: loc is Map<String, dynamic> ? loc['name'] as String? : null,
+      locationName: isLoc ? loc['name'] as String? : null,
+      locationIcon: isLoc ? loc['icon'] as String? : null,
+      locationColorHex: isLoc ? loc['color'] as String? : null,
+      locationType: isLoc ? loc['type'] as String? : null,
       quantity: json['quantity'] as num?,
       unit: json['unit'] as String?,
       barcode: json['barcode'] as String?,
       brand: json['brand'] as String?,
       categoryId: json['category_id']?.toString(),
-      categoryName: cat is Map<String, dynamic> ? cat['name'] as String? : null,
-      categoryIcon: cat is Map<String, dynamic> ? cat['icon'] as String? : null,
+      categoryName: isCat ? cat['name'] as String? : null,
+      categoryIcon: isCat ? cat['icon'] as String? : null,
+      categoryColorHex: isCat ? cat['color'] as String? : null,
+      price: json['price'] as num?,
       notes: json['notes'] as String?,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString())
+          : null,
     );
   }
 }

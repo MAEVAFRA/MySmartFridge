@@ -8,10 +8,15 @@ import '../domain/inventory_models.dart';
 
 /// Couleur d'un emplacement : sa couleur personnalisée si définie, sinon une
 /// couleur par défaut selon son type (frigo / congélo / placard).
-Color locationColor(Location location) {
-  final parsed = parseHexColor(location.colorHex);
+Color locationColor(Location location) =>
+    locationColorFrom(location.colorHex, location.type);
+
+/// Variante à partir d'un hex et d'un type bruts (utile quand on n'a pas un
+/// objet [Location] sous la main, ex. les champs imbriqués d'un produit).
+Color locationColorFrom(String? colorHex, String? type) {
+  final parsed = parseHexColor(colorHex);
   if (parsed != null) return parsed;
-  switch (location.type) {
+  switch (type) {
     case 'fridge':
       return AppColors.fridge;
     case 'freezer':

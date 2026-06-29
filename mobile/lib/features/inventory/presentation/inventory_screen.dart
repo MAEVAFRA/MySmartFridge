@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -490,10 +491,13 @@ class _ProductRow extends StatelessWidget {
     final days = date != null ? daysUntilExpiry(date) : null;
     final quantity = _formatQuantity(product);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
+    return InkWell(
+      onTap: () => context.push('/inventory/product/${product.id}',
+          extra: product),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
           if (product.categoryIcon != null) ...[
             Text(product.categoryIcon!, style: const TextStyle(fontSize: 18)),
             const SizedBox(width: 10),
@@ -540,7 +544,11 @@ class _ProductRow extends StatelessWidget {
                 ),
               ],
             ),
-        ],
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right,
+              size: 18, color: AppColors.neutral400),
+          ],
+        ),
       ),
     );
   }

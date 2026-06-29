@@ -24,6 +24,13 @@ final inventoryProvider = FutureProvider.autoDispose<InventoryData>((ref) async 
   );
 });
 
+/// Détail d'un produit (INV-5), rafraîchi depuis `GET /products/:id`.
+final productDetailProvider =
+    FutureProvider.autoDispose.family<Product, String>((ref, id) async {
+  final repo = ref.read(inventoryRepositoryProvider);
+  return repo.getProduct(id);
+});
+
 /// Données nécessaires au formulaire d'ajout : emplacements + catégories.
 class AddProductFormData {
   const AddProductFormData({required this.locations, required this.categories});

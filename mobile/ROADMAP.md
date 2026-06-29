@@ -28,7 +28,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 ### Fonctionnel — très partiel
 - ✅ **Auth** : login, register, forgot-password, restauration de session (`/auth/me`), logout. Complet de bout en bout.
 - ✅ **Accueil/Dashboard** : agrégation **côté client par 3 round-trips** (produits, expirants, emplacements), salutation, sections "À consommer vite" + "Mon stock", pull-to-refresh, états async, logout. Complet (lecture seule, items non cliquables). *Note de conception : `GET /stats` existe déjà côté API et pourrait remplacer une partie de cette agrégation maison (voir STAT-1).*
-- ✅ **Inventaire (liste)** : écran réel — produits regroupés par emplacement (icône/couleur), badges de péremption, quantité/unité, états chargement/erreur/vide, pull-to-refresh, **recherche (nom/marque) + filtres (emplacement, péremption) + tri (péremption/nom)** (INV-1/INV-2/INV-3/INV-4, UI-1). Détail/édition encore à faire (INV-5/INV-7).
+- ✅ **Inventaire (liste)** : écran réel — produits regroupés par emplacement (icône/couleur), badges de péremption, quantité/unité, états chargement/erreur/vide, pull-to-refresh, **recherche (nom/marque) + filtres (emplacement, péremption) + tri (péremption/nom)** (INV-1/INV-2/INV-3/INV-4, UI-1), **fiche détail produit cliquable** (INV-5). Édition encore à faire (INV-7).
 - ⬜ **Scanner / Courses / Plus** : 3 onglets sur 5 = `ComingSoonScreen` (placeholders).
 
 ### Dettes / manques transverses identifiés (vérifiés dans le code)
@@ -91,7 +91,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 | INV-2 | Écran Inventaire : liste produits avec badges péremption + icône/couleur emplacement | ✅ | P-Haute | M | `GET /products`, `GET /locations` | INV-1 |
 | INV-3 | Recherche + tri + filtres (emplacement, péremption) | ✅ | P-Moy | M | `GET /products` | INV-2 |
 | INV-4 | Pull-to-refresh inventaire | ✅ | P-Moy | S | `GET /products` | INV-2 |
-| INV-5 | Détail produit (route + écran) | ⬜ | P-Moy | M | `GET /products/:id` | INV-2 |
+| INV-5 | Détail produit (route + écran) | ✅ | P-Moy | M | `GET /products/:id` | INV-2 |
 | INV-6 | **Ajout produit** (bottom sheet formulaire, charge catégories + emplacements) | ✅ | P-Haute | L | `POST /products`, `GET /locations`, `GET /categories` | INV-0, INV-2 |
 | INV-7 | Édition produit | ⬜ | P-Moy | M | `PUT /products/:id` | INV-6 |
 | INV-8 | Retrait/suppression produit avec motif (consommé/jeté/retiré) → stats gaspillage | ⬜ | P-Moy | M | `DELETE /products/:id` (body `{reason}`) | INV-5 |

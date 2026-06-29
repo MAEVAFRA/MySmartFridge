@@ -30,6 +30,12 @@ class InventoryRepository {
         .toList();
   }
 
+  /// Détail d'un produit (champs complets : prix, notes, date d'ajout…).
+  Future<Product> getProduct(String id) async {
+    final res = await _dio.get('/products/$id');
+    return Product.fromJson(res.data as Map<String, dynamic>);
+  }
+
   Future<List<Location>> getLocations() async {
     final res = await _dio.get('/locations');
     return (res.data as List)
