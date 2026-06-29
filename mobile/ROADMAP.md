@@ -138,7 +138,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 
 | ID | Titre | Statut | Prio | Taille | Endpoints | Deps |
 |----|-------|--------|------|--------|-----------|------|
-| SHOP-1 | Couche data+modèles (ShoppingList, ShoppingItem) + provider | ⬜ | P-Haute | M | `GET /shopping-lists` | UI-1 |
+| SHOP-1 | Couche data+modèles (ShoppingList, ShoppingItem) + provider | ✅ | P-Haute | M | `GET /shopping-lists` | UI-1 |
 | SHOP-2 | Écran listes (onglets, compteur coché/total) + états | ⬜ | P-Haute | M | `GET /shopping-lists` | SHOP-1 |
 | SHOP-3 | CRUD liste (créer/renommer/supprimer) | ⬜ | P-Haute | M | `POST/PUT/DELETE /shopping-lists` | SHOP-2 |
 | SHOP-4 | Ajout/suppression article manuel | ⬜ | P-Haute | M | `POST/DELETE /shopping-lists/:id/items` | SHOP-2 |
