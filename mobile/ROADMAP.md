@@ -140,7 +140,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 |----|-------|--------|------|--------|-----------|------|
 | SHOP-1 | Couche data+modèles (ShoppingList, ShoppingItem) + provider | ✅ | P-Haute | M | `GET /shopping-lists` | UI-1 |
 | SHOP-2 | Écran listes (onglets, compteur coché/total) + états | ✅ | P-Haute | M | `GET /shopping-lists` | SHOP-1 |
-| SHOP-3 | CRUD liste (créer/renommer/supprimer) | ⬜ | P-Haute | M | `POST/PUT/DELETE /shopping-lists` | SHOP-2 |
+| SHOP-3 | CRUD liste (créer/renommer/supprimer) | ✅ | P-Haute | M | `POST/PUT/DELETE /shopping-lists` | SHOP-2 |
 | SHOP-4 | Ajout/suppression article manuel | ⬜ | P-Haute | M | `POST/DELETE /shopping-lists/:id/items` | SHOP-2 |
 | SHOP-5 | Cocher/décocher article (geste clé magasin + haptique) | ⬜ | P-Haute | S | `PUT /shopping-lists/:id/items/:itemId` | SHOP-4 |
 | SHOP-6 | Ajout articles depuis inventaire (stock bas, multi-select) | ⬜ | P-Moy | M | `POST /shopping-lists/:id/items/from-inventory`, `GET /products` | SHOP-4 |

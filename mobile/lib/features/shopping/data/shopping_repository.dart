@@ -20,8 +20,10 @@ class ShoppingRepository {
         .toList();
   }
 
-  Future<void> createList(String name) async {
-    await _dio.post('/shopping-lists', data: {'name': name});
+  /// Crée une liste et renvoie l'objet créé (pour la sélectionner aussitôt).
+  Future<ShoppingList> createList(String name) async {
+    final res = await _dio.post('/shopping-lists', data: {'name': name});
+    return ShoppingList.fromJson(res.data as Map<String, dynamic>);
   }
 
   Future<void> renameList(String id, String name) async {

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/async_state_views.dart';
 import '../application/shopping_providers.dart';
+import '../data/shopping_repository.dart';
 import '../domain/shopping_models.dart';
 
 /// Liste de courses active sélectionnée par l'utilisateur (`null` → liste par
@@ -13,6 +14,9 @@ class SelectedListId extends Notifier<String?> {
   String? build() => null;
 
   void select(String id) => state = id;
+
+  /// Revient à la sélection par défaut (liste par défaut / première).
+  void reset() => state = null;
 }
 
 final selectedListIdProvider =
@@ -26,10 +30,54 @@ class ShoppingScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final lists = ref.watch(shoppingListsProvider);
 
+    // Liste active pour le menu (renommer/supprimer) : seulement si on a des données.
+    final activeForMenu = lists.maybeWhen(
+      data: (d) => d.isEmpty
+          ? null
+          : _activeList(d, ref.watch(selectedListIdProvider)),
+      orElse: () => null,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Courses',
             style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            tooltip: 'Nouvelle liste',
+            icon: const Icon(Icons.add),
+            onPressed: () => _createListDialog(context, ref),
+          ),
+          if (activeForMenu != null)
+            PopupMenuButton<_ListAction>(
+              tooltip: 'Options de la liste',
+              onSelected: (action) => switch (action) {
+                _ListAction.rename =>
+                  _renameListDialog(context, ref, activeForMenu),
+                _ListAction.delete =>
+                  _deleteListDialog(context, ref, activeForMenu),
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: _ListAction.rename,
+                  child: ListTile(
+                    leading: Icon(Icons.edit_outlined),
+                    title: Text('Renommer la liste'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _ListAction.delete,
+                  child: ListTile(
+                    leading: Icon(Icons.delete_outline, color: AppColors.error),
+                    title: Text('Supprimer la liste',
+                        style: TextStyle(color: AppColors.error)),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
       body: lists.when(
         loading: () => const LoadingView(),
@@ -49,6 +97,14 @@ class ShoppingScreen extends ConsumerWidget {
                     icon: Icons.shopping_cart_outlined,
                     title: 'Aucune liste de courses',
                     message: 'Crée ta première liste pour commencer.',
+                  ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: FilledButton.icon(
+                      onPressed: () => _createListDialog(context, ref),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Créer une liste'),
+                    ),
                   ),
                 ],
               ),
@@ -313,6 +369,104 @@ class _ItemRow extends StatelessWidget {
       ),
     );
   }
+}
+
+enum _ListAction { rename, delete }
+
+// ─── Actions sur les listes (SHOP-3) : dialogs natifs ───────────────
+
+Future<void> _createListDialog(BuildContext context, WidgetRef ref) async {
+  final name = await _promptListName(context, title: 'Nouvelle liste');
+  if (name == null || !context.mounted) return;
+  try {
+    final created = await ref.read(shoppingRepositoryProvider).createList(name);
+    ref.read(selectedListIdProvider.notifier).select(created.id);
+    ref.invalidate(shoppingListsProvider);
+  } catch (_) {
+    if (context.mounted) _showError(context, 'Impossible de créer la liste');
+  }
+}
+
+Future<void> _renameListDialog(
+    BuildContext context, WidgetRef ref, ShoppingList list) async {
+  final name = await _promptListName(context,
+      title: 'Renommer la liste', initial: list.name);
+  if (name == null || name == list.name || !context.mounted) return;
+  try {
+    await ref.read(shoppingRepositoryProvider).renameList(list.id, name);
+    ref.invalidate(shoppingListsProvider);
+  } catch (_) {
+    if (context.mounted) _showError(context, 'Impossible de renommer la liste');
+  }
+}
+
+Future<void> _deleteListDialog(
+    BuildContext context, WidgetRef ref, ShoppingList list) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Supprimer la liste ?'),
+      content: Text(
+          '« ${list.name} » et ses ${list.totalCount} article(s) seront supprimés.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Supprimer'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+  try {
+    await ref.read(shoppingRepositoryProvider).deleteList(list.id);
+    ref.read(selectedListIdProvider.notifier).reset();
+    ref.invalidate(shoppingListsProvider);
+  } catch (_) {
+    if (context.mounted) _showError(context, 'Impossible de supprimer la liste');
+  }
+}
+
+/// Petit formulaire de saisie de nom (création / renommage).
+Future<String?> _promptListName(BuildContext context,
+    {required String title, String initial = ''}) {
+  final controller = TextEditingController(text: initial);
+  return showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(title),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: const InputDecoration(
+          labelText: 'Nom de la liste',
+          hintText: 'Ex. Courses de la semaine',
+        ),
+        onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+          child: const Text('Valider'),
+        ),
+      ],
+    ),
+  ).then((v) => (v == null || v.isEmpty) ? null : v);
+}
+
+void _showError(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message), backgroundColor: AppColors.error),
+  );
 }
 
 /// Quantité formatée (« 2 unité », « 500 g »…) ou `null`.
