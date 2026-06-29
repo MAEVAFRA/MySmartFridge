@@ -8,40 +8,6 @@ import '../application/shopping_providers.dart';
 import '../data/shopping_repository.dart';
 import '../domain/shopping_models.dart';
 
-/// Liste de courses active sélectionnée par l'utilisateur (`null` → liste par
-/// défaut / première liste).
-class SelectedListId extends Notifier<String?> {
-  @override
-  String? build() => null;
-
-  void select(String id) => state = id;
-
-  /// Revient à la sélection par défaut (liste par défaut / première).
-  void reset() => state = null;
-}
-
-final selectedListIdProvider =
-    NotifierProvider<SelectedListId, String?>(SelectedListId.new);
-
-/// Surcharges optimistes de l'état « coché » par article (id → coché), le temps
-/// que l'appel réseau confirme. Permet un cochage instantané en magasin (SHOP-5).
-class CheckOverrides extends Notifier<Map<String, bool>> {
-  @override
-  Map<String, bool> build() => const {};
-
-  void set(String itemId, bool checked) =>
-      state = {...state, itemId: checked};
-
-  void clear(String itemId) {
-    if (!state.containsKey(itemId)) return;
-    final next = {...state}..remove(itemId);
-    state = next;
-  }
-}
-
-final checkOverridesProvider =
-    NotifierProvider<CheckOverrides, Map<String, bool>>(CheckOverrides.new);
-
 /// Onglet Courses : listes du foyer, articles cochables en magasin.
 class ShoppingScreen extends ConsumerWidget {
   const ShoppingScreen({super.key});
@@ -387,9 +353,37 @@ class _ItemRow extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: const Icon(Icons.delete_outline, color: Colors.white),
       ),
-      onDismissed: (_) => _deleteItem(context, ref, listId, item),
+      onDismissed: (_) {
+        final messenger = ScaffoldMessenger.of(context);
+        ref.read(shoppingActionsProvider).deleteItem(listId, item.id).then((ok) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(ok
+                  ? '« ${item.name} » supprimé'
+                  : 'Impossible de supprimer l\'article'),
+              backgroundColor: ok ? null : AppColors.error,
+            ),
+          );
+        });
+      },
       child: InkWell(
-        onTap: () => _toggleItem(context, ref, listId, item, checked),
+        onTap: () {
+          final messenger = ScaffoldMessenger.of(context);
+          HapticFeedback.selectionClick();
+          ref
+              .read(shoppingActionsProvider)
+              .toggleChecked(listId, item, checked)
+              .then((ok) {
+            if (!ok) {
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text('Échec de la synchronisation'),
+                  backgroundColor: AppColors.error,
+                ),
+              );
+            }
+          });
+        },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
@@ -422,35 +416,6 @@ class _ItemRow extends ConsumerWidget {
         ),
       ),
     );
-  }
-}
-
-/// Coche/décoche un article : retour haptique + mise à jour optimiste, puis
-/// confirmation serveur. En cas d'échec, on resynchronise sur le serveur (SHOP-5).
-Future<void> _toggleItem(BuildContext context, WidgetRef ref, String listId,
-    ShoppingItem item, bool current) async {
-  final next = !current;
-  HapticFeedback.selectionClick();
-
-  final overrides = ref.read(checkOverridesProvider.notifier);
-  final messenger = ScaffoldMessenger.of(context);
-  overrides.set(item.id, next);
-  try {
-    await ref
-        .read(shoppingRepositoryProvider)
-        .setItemChecked(listId, item.id, next);
-    ref.invalidate(shoppingListsProvider);
-    await ref.read(shoppingListsProvider.future);
-  } catch (_) {
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text('Échec de la synchronisation'),
-        backgroundColor: AppColors.error,
-      ),
-    );
-    ref.invalidate(shoppingListsProvider);
-  } finally {
-    overrides.clear(item.id);
   }
 }
 
@@ -557,22 +522,6 @@ class _AddItemBarState extends ConsumerState<_AddItemBar> {
         ),
       ),
     );
-  }
-}
-
-Future<void> _deleteItem(BuildContext context, WidgetRef ref, String listId,
-    ShoppingItem item) async {
-  try {
-    await ref.read(shoppingRepositoryProvider).deleteItem(listId, item.id);
-    ref.invalidate(shoppingListsProvider);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('« ${item.name} » supprimé')),
-      );
-    }
-  } catch (_) {
-    if (context.mounted) _showError(context, 'Impossible de supprimer l\'article');
-    ref.invalidate(shoppingListsProvider); // resynchronise l'affichage
   }
 }
 
