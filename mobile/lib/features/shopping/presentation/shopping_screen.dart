@@ -121,6 +121,7 @@ class ShoppingScreen extends ConsumerWidget {
                   child: _ListContent(list: active),
                 ),
               ),
+              _AddItemBar(listId: active.id),
             ],
           );
         },
@@ -227,13 +228,13 @@ class _ListContent extends StatelessWidget {
         if (toBuy.isNotEmpty) ...[
           _SectionLabel('À acheter (${toBuy.length})'),
           const SizedBox(height: 8),
-          _ItemsCard(items: toBuy),
+          _ItemsCard(items: toBuy, listId: list.id),
         ],
         if (inCart.isNotEmpty) ...[
           const SizedBox(height: 20),
           _SectionLabel('Dans le panier (${inCart.length})'),
           const SizedBox(height: 8),
-          _ItemsCard(items: inCart),
+          _ItemsCard(items: inCart, listId: list.id),
         ],
       ],
     );
@@ -300,9 +301,10 @@ class _SectionLabel extends StatelessWidget {
 }
 
 class _ItemsCard extends StatelessWidget {
-  const _ItemsCard({required this.items});
+  const _ItemsCard({required this.items, required this.listId});
 
   final List<ShoppingItem> items;
+  final String listId;
 
   @override
   Widget build(BuildContext context) {
@@ -322,7 +324,7 @@ class _ItemsCard extends StatelessWidget {
                   indent: 16,
                   endIndent: 16,
                   color: AppColors.border),
-            _ItemRow(item: items[i]),
+            _ItemRow(item: items[i], listId: listId),
           ],
         ],
       ),
@@ -330,44 +332,178 @@ class _ItemsCard extends StatelessWidget {
   }
 }
 
-class _ItemRow extends StatelessWidget {
-  const _ItemRow({required this.item});
+class _ItemRow extends ConsumerWidget {
+  const _ItemRow({required this.item, required this.listId});
 
   final ShoppingItem item;
+  final String listId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final qty = _formatQuantity(item);
+    return Dismissible(
+      key: ValueKey('item-${item.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        color: AppColors.error,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: const Icon(Icons.delete_outline, color: Colors.white),
+      ),
+      onDismissed: (_) => _deleteItem(context, ref, listId, item),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              item.checked ? Icons.check_circle : Icons.radio_button_unchecked,
+              color: item.checked ? AppColors.success : AppColors.neutral400,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                item.name,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: item.checked
+                      ? AppColors.textSecondary
+                      : AppColors.textPrimary,
+                  decoration: item.checked ? TextDecoration.lineThrough : null,
+                ),
+              ),
+            ),
+            if (qty != null)
+              Text(
+                qty,
+                style: const TextStyle(
+                    fontSize: 13, color: AppColors.textSecondary),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Barre de saisie d'un nouvel article, ancrée en bas de l'écran.
+class _AddItemBar extends ConsumerStatefulWidget {
+  const _AddItemBar({required this.listId});
+
+  final String listId;
+
+  @override
+  ConsumerState<_AddItemBar> createState() => _AddItemBarState();
+}
+
+class _AddItemBarState extends ConsumerState<_AddItemBar> {
+  final _controller = TextEditingController();
+  final _focus = FocusNode();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final name = _controller.text.trim();
+    if (name.isEmpty || _submitting) return;
+    setState(() => _submitting = true);
+    try {
+      await ref
+          .read(shoppingRepositoryProvider)
+          .addItem(widget.listId, name: name);
+      _controller.clear();
+      ref.invalidate(shoppingListsProvider);
+      // Garde le focus pour enchaîner les saisies en magasin.
+      _focus.requestFocus();
+    } catch (_) {
+      if (mounted) _showError(context, 'Impossible d\'ajouter l\'article');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final qty = _formatQuantity(item);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Icon(
-            item.checked ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: item.checked ? AppColors.success : AppColors.neutral400,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              item.name,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: item.checked
-                    ? AppColors.textSecondary
-                    : AppColors.textPrimary,
-                decoration: item.checked ? TextDecoration.lineThrough : null,
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        12,
+        8,
+        12,
+        8 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                focusNode: _focus,
+                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _submit(),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'Ajouter un article…',
+                  filled: true,
+                  fillColor: AppColors.background,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                ),
               ),
             ),
-          ),
-          if (qty != null)
-            Text(
-              qty,
-              style: const TextStyle(
-                  fontSize: 13, color: AppColors.textSecondary),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: _submitting ? null : _submit,
+              style: FilledButton.styleFrom(
+                shape: const CircleBorder(),
+                padding: const EdgeInsets.all(14),
+              ),
+              child: _submitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.add),
             ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+}
+
+Future<void> _deleteItem(BuildContext context, WidgetRef ref, String listId,
+    ShoppingItem item) async {
+  try {
+    await ref.read(shoppingRepositoryProvider).deleteItem(listId, item.id);
+    ref.invalidate(shoppingListsProvider);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('« ${item.name} » supprimé')),
+      );
+    }
+  } catch (_) {
+    if (context.mounted) _showError(context, 'Impossible de supprimer l\'article');
+    ref.invalidate(shoppingListsProvider); // resynchronise l'affichage
   }
 }
 
