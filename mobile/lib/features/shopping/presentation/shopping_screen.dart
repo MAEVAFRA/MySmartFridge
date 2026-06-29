@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -21,6 +22,25 @@ class SelectedListId extends Notifier<String?> {
 
 final selectedListIdProvider =
     NotifierProvider<SelectedListId, String?>(SelectedListId.new);
+
+/// Surcharges optimistes de l'état « coché » par article (id → coché), le temps
+/// que l'appel réseau confirme. Permet un cochage instantané en magasin (SHOP-5).
+class CheckOverrides extends Notifier<Map<String, bool>> {
+  @override
+  Map<String, bool> build() => const {};
+
+  void set(String itemId, bool checked) =>
+      state = {...state, itemId: checked};
+
+  void clear(String itemId) {
+    if (!state.containsKey(itemId)) return;
+    final next = {...state}..remove(itemId);
+    state = next;
+  }
+}
+
+final checkOverridesProvider =
+    NotifierProvider<CheckOverrides, Map<String, bool>>(CheckOverrides.new);
 
 /// Onglet Courses : listes du foyer, articles cochables en magasin.
 class ShoppingScreen extends ConsumerWidget {
@@ -195,13 +215,13 @@ class _ListSelector extends ConsumerWidget {
 }
 
 /// Contenu d'une liste : compteur de progression + articles à acheter / cochés.
-class _ListContent extends StatelessWidget {
+class _ListContent extends ConsumerWidget {
   const _ListContent({required this.list});
 
   final ShoppingList list;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (list.items.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -216,25 +236,30 @@ class _ListContent extends StatelessWidget {
       );
     }
 
-    final toBuy = list.items.where((i) => !i.checked).toList();
-    final inCart = list.items.where((i) => i.checked).toList();
+    // État coché effectif = surcharge optimiste si présente, sinon serveur.
+    final overrides = ref.watch(checkOverridesProvider);
+    bool isChecked(ShoppingItem i) => overrides[i.id] ?? i.checked;
+
+    final toBuy = list.items.where((i) => !isChecked(i)).toList();
+    final inCart = list.items.where(isChecked).toList();
+    final checkedCount = inCart.length;
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
-        _ProgressHeader(checked: list.checkedCount, total: list.totalCount),
+        _ProgressHeader(checked: checkedCount, total: list.totalCount),
         const SizedBox(height: 16),
         if (toBuy.isNotEmpty) ...[
           _SectionLabel('À acheter (${toBuy.length})'),
           const SizedBox(height: 8),
-          _ItemsCard(items: toBuy, listId: list.id),
+          _ItemsCard(items: toBuy, listId: list.id, checked: false),
         ],
         if (inCart.isNotEmpty) ...[
           const SizedBox(height: 20),
           _SectionLabel('Dans le panier (${inCart.length})'),
           const SizedBox(height: 8),
-          _ItemsCard(items: inCart, listId: list.id),
+          _ItemsCard(items: inCart, listId: list.id, checked: true),
         ],
       ],
     );
@@ -301,10 +326,15 @@ class _SectionLabel extends StatelessWidget {
 }
 
 class _ItemsCard extends StatelessWidget {
-  const _ItemsCard({required this.items, required this.listId});
+  const _ItemsCard({
+    required this.items,
+    required this.listId,
+    required this.checked,
+  });
 
   final List<ShoppingItem> items;
   final String listId;
+  final bool checked;
 
   @override
   Widget build(BuildContext context) {
@@ -324,7 +354,7 @@ class _ItemsCard extends StatelessWidget {
                   indent: 16,
                   endIndent: 16,
                   color: AppColors.border),
-            _ItemRow(item: items[i], listId: listId),
+            _ItemRow(item: items[i], listId: listId, checked: checked),
           ],
         ],
       ),
@@ -333,10 +363,17 @@ class _ItemsCard extends StatelessWidget {
 }
 
 class _ItemRow extends ConsumerWidget {
-  const _ItemRow({required this.item, required this.listId});
+  const _ItemRow({
+    required this.item,
+    required this.listId,
+    required this.checked,
+  });
 
   final ShoppingItem item;
   final String listId;
+
+  /// État coché effectif (surcharge optimiste appliquée en amont).
+  final bool checked;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -351,37 +388,69 @@ class _ItemRow extends ConsumerWidget {
         child: const Icon(Icons.delete_outline, color: Colors.white),
       ),
       onDismissed: (_) => _deleteItem(context, ref, listId, item),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Icon(
-              item.checked ? Icons.check_circle : Icons.radio_button_unchecked,
-              color: item.checked ? AppColors.success : AppColors.neutral400,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                item.name,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: item.checked
-                      ? AppColors.textSecondary
-                      : AppColors.textPrimary,
-                  decoration: item.checked ? TextDecoration.lineThrough : null,
+      child: InkWell(
+        onTap: () => _toggleItem(context, ref, listId, item, checked),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                checked ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: checked ? AppColors.success : AppColors.neutral400,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  item.name,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: checked
+                        ? AppColors.textSecondary
+                        : AppColors.textPrimary,
+                    decoration: checked ? TextDecoration.lineThrough : null,
+                  ),
                 ),
               ),
-            ),
-            if (qty != null)
-              Text(
-                qty,
-                style: const TextStyle(
-                    fontSize: 13, color: AppColors.textSecondary),
-              ),
-          ],
+              if (qty != null)
+                Text(
+                  qty,
+                  style: const TextStyle(
+                      fontSize: 13, color: AppColors.textSecondary),
+                ),
+            ],
+          ),
         ),
       ),
     );
+  }
+}
+
+/// Coche/décoche un article : retour haptique + mise à jour optimiste, puis
+/// confirmation serveur. En cas d'échec, on resynchronise sur le serveur (SHOP-5).
+Future<void> _toggleItem(BuildContext context, WidgetRef ref, String listId,
+    ShoppingItem item, bool current) async {
+  final next = !current;
+  HapticFeedback.selectionClick();
+
+  final overrides = ref.read(checkOverridesProvider.notifier);
+  final messenger = ScaffoldMessenger.of(context);
+  overrides.set(item.id, next);
+  try {
+    await ref
+        .read(shoppingRepositoryProvider)
+        .setItemChecked(listId, item.id, next);
+    ref.invalidate(shoppingListsProvider);
+    await ref.read(shoppingListsProvider.future);
+  } catch (_) {
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Échec de la synchronisation'),
+        backgroundColor: AppColors.error,
+      ),
+    );
+    ref.invalidate(shoppingListsProvider);
+  } finally {
+    overrides.clear(item.id);
   }
 }
 

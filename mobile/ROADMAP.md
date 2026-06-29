@@ -29,7 +29,8 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 - ✅ **Auth** : login, register, forgot-password, restauration de session (`/auth/me`), logout. Complet de bout en bout.
 - ✅ **Accueil/Dashboard** : agrégation **côté client par 3 round-trips** (produits, expirants, emplacements), salutation, sections "À consommer vite" + "Mon stock", pull-to-refresh, états async, logout. Complet (lecture seule, items non cliquables). *Note de conception : `GET /stats` existe déjà côté API et pourrait remplacer une partie de cette agrégation maison (voir STAT-1).*
 - ✅ **Inventaire (liste)** : écran réel — produits regroupés par emplacement (icône/couleur), badges de péremption, quantité/unité, états chargement/erreur/vide, pull-to-refresh, **recherche (nom/marque) + filtres (emplacement, péremption) + tri (péremption/nom)** (INV-1/INV-2/INV-3/INV-4, UI-1), **fiche détail produit cliquable** (INV-5). Édition encore à faire (INV-7).
-- ⬜ **Scanner / Courses / Plus** : 3 onglets sur 5 = `ComingSoonScreen` (placeholders).
+- ✅ **Courses** : écran réel — listes du foyer (sélecteur + compteur coché/total), articles sectionnés à acheter/panier, **CRUD listes**, **ajout/suppression d'articles**, **cochage optimiste + haptique** (SHOP-1→5). Reste : ajout depuis l'inventaire (SHOP-6), transfert vers stock (SHOP-7).
+- ⬜ **Scanner / Plus** : 2 onglets sur 5 = `ComingSoonScreen` (placeholders).
 
 ### Dettes / manques transverses identifiés (vérifiés dans le code)
 - ✅ **401 géré globalement** (AUTH-6/TECH-1, livré) : l'intercepteur Dio déconnecte automatiquement sur un 401 d'une requête authentifiée (endpoints d'auth publics exclus) et le routeur renvoie au login. `LogInterceptor` actif en debug (sans logguer le token).
@@ -142,7 +143,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 | SHOP-2 | Écran listes (onglets, compteur coché/total) + états | ✅ | P-Haute | M | `GET /shopping-lists` | SHOP-1 |
 | SHOP-3 | CRUD liste (créer/renommer/supprimer) | ✅ | P-Haute | M | `POST/PUT/DELETE /shopping-lists` | SHOP-2 |
 | SHOP-4 | Ajout/suppression article manuel | ✅ | P-Haute | M | `POST/DELETE /shopping-lists/:id/items` | SHOP-2 |
-| SHOP-5 | Cocher/décocher article (geste clé magasin + haptique) | ⬜ | P-Haute | S | `PUT /shopping-lists/:id/items/:itemId` | SHOP-4 |
+| SHOP-5 | Cocher/décocher article (geste clé magasin + haptique) | ✅ | P-Haute | S | `PUT /shopping-lists/:id/items/:itemId` | SHOP-4 |
 | SHOP-6 | Ajout articles depuis inventaire (stock bas, multi-select) | ⬜ | P-Moy | M | `POST /shopping-lists/:id/items/from-inventory`, `GET /products` | SHOP-4 |
 | SHOP-7 | Transfert articles cochés → stock (choix emplacement) | ⬜ | P-Moy | M | `POST /shopping-lists/:id/transfer`, `GET /locations` | SHOP-5 |
 | SHOP-8 | Offline/optimistic sur le cochage | ⬜ | P-Basse | M | — | SHOP-5, OFFLINE-1 |

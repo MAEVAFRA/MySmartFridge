@@ -42,22 +42,6 @@ class ShoppingItem {
       productId: json['product_id']?.toString(),
     );
   }
-
-  /// Copie locale (utilisée pour les mises à jour optimistes du cochage).
-  ShoppingItem copyWith({bool? checked}) {
-    return ShoppingItem(
-      id: id,
-      listId: listId,
-      name: name,
-      checked: checked ?? this.checked,
-      quantity: quantity,
-      unit: unit,
-      categoryId: categoryId,
-      estimatedPrice: estimatedPrice,
-      notes: notes,
-      productId: productId,
-    );
-  }
 }
 
 /// Une liste de courses et ses articles.
@@ -94,16 +78,6 @@ class ShoppingList {
               .map((e) => ShoppingItem.fromJson(e as Map<String, dynamic>))
               .toList()
           : const [],
-    );
-  }
-
-  ShoppingList copyWith({String? name, List<ShoppingItem>? items}) {
-    return ShoppingList(
-      id: id,
-      name: name ?? this.name,
-      items: items ?? this.items,
-      isDefault: isDefault,
-      displayOrder: displayOrder,
     );
   }
 }
