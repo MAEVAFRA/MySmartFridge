@@ -82,7 +82,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           name: 'forgot-password',
           builder: (_, _) => const ForgotPasswordScreen()),
 
-      // Coquille connectée à 5 onglets persistants.
+      // Scanner : route plein écran poussée par-dessus la coquille (la caméra
+      // n'est ainsi active que pendant le scan, et la barre d'onglets masquée).
+      GoRoute(
+          path: _scan,
+          name: 'scan',
+          builder: (_, _) => const ScannerScreen()),
+
+      // Coquille connectée à onglets persistants (Accueil · Inventaire ·
+      // Courses · Plus ; le Scanner central pousse la route ci-dessus).
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
@@ -111,12 +119,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 ),
               ],
             ),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(
-                path: _scan,
-                name: 'scan',
-                builder: (_, _) => const ScannerScreen()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(

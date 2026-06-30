@@ -5,17 +5,30 @@ import '../../../core/theme/app_colors.dart';
 /// Barre de navigation basse, calée sur le design system (composant TabBar) :
 /// 5 onglets + bouton central « Scanner » surélevé.
 class AppTabBar extends StatelessWidget {
-  const AppTabBar({super.key, required this.currentIndex, required this.onTap});
+  const AppTabBar({
+    super.key,
+    required this.currentIndex,
+    required this.onTap,
+    required this.onScan,
+  });
 
+  /// Index de la branche active du shell (0..3).
   final int currentIndex;
+
+  /// Bascule vers une branche du shell (index de branche).
   final ValueChanged<int> onTap;
 
+  /// Action du bouton central : ouvre l'écran de scan (hors shell).
+  final VoidCallback onScan;
+
+  // `branch` = index de la branche du shell (null pour le bouton Scanner, qui
+  // pousse une route plein écran au lieu de changer d'onglet).
   static const List<_TabSpec> _tabs = [
-    _TabSpec('Accueil', Icons.kitchen),
-    _TabSpec('Inventaire', Icons.inventory_2_outlined),
+    _TabSpec('Accueil', Icons.kitchen, branch: 0),
+    _TabSpec('Inventaire', Icons.inventory_2_outlined, branch: 1),
     _TabSpec('Scanner', Icons.qr_code_scanner, isFab: true),
-    _TabSpec('Courses', Icons.shopping_cart_outlined),
-    _TabSpec('Plus', Icons.menu),
+    _TabSpec('Courses', Icons.shopping_cart_outlined, branch: 2),
+    _TabSpec('Plus', Icons.menu, branch: 3),
   ];
 
   @override
@@ -35,17 +48,17 @@ class AppTabBar extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              for (var i = 0; i < _tabs.length; i++)
+              for (final spec in _tabs)
                 Expanded(
-                  child: _tabs[i].isFab
+                  child: spec.isFab
                       ? _FabTab(
-                          spec: _tabs[i],
-                          onTap: () => onTap(i),
+                          spec: spec,
+                          onTap: onScan,
                         )
                       : _NavTab(
-                          spec: _tabs[i],
-                          active: i == currentIndex,
-                          onTap: () => onTap(i),
+                          spec: spec,
+                          active: currentIndex == spec.branch,
+                          onTap: () => onTap(spec.branch!),
                         ),
                 ),
             ],
@@ -155,8 +168,11 @@ class _FabTab extends StatelessWidget {
 }
 
 class _TabSpec {
-  const _TabSpec(this.label, this.icon, {this.isFab = false});
+  const _TabSpec(this.label, this.icon, {this.branch, this.isFab = false});
   final String label;
   final IconData icon;
+
+  /// Index de la branche du shell, ou `null` pour le bouton Scanner central.
+  final int? branch;
   final bool isFab;
 }

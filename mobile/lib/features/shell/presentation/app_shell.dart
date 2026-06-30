@@ -21,6 +21,8 @@ class AppShell extends StatelessWidget {
           // Re-tap sur l'onglet actif → retour à sa racine.
           initialLocation: index == navigationShell.currentIndex,
         ),
+        // Le bouton central pousse l'écran de scan plein écran (hors coquille).
+        onScan: () => context.pushNamed('scan'),
       ),
     );
   }
