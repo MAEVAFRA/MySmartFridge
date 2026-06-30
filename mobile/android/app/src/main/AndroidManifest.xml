@@ -1,4 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Scanner code-barre (mobile_scanner + permission_handler). La permission
+         CAMERA doit être déclarée pour que permission_handler puisse l'évaluer ;
+         la caméra n'est pas requise pour installer l'app (saisie manuelle = repli). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
     <application
         android:label="mysmartfridge"
         android:name="${applicationName}"
