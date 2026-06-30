@@ -1,0 +1,35 @@
+# Codemagic — build d'un .ipa NON SIGNÉ pour sideloading (AltStore / Sideloadly).
+# Aucun certificat Apple n'est requis : Codemagic compile seulement,
+# c'est AltStore/Sideloadly qui signe l'app avec ton Apple ID gratuit au moment de l'install.
+#
+# L'app Flutter est dans le sous-dossier mobile/ → chaque étape fait "cd mobile"
+# (Codemagic relance un shell neuf à chaque script, donc le cd ne se conserve pas).
+
+workflows:
+  ios-sideload:
+    name: iOS unsigned IPA (sideload)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Récupérer les packages Flutter
+        script: |
+          cd mobile
+          flutter pub get
+
+      - name: Compiler iOS (sans signature)
+        script: |
+          cd mobile
+          flutter build ios --release --no-codesign
+
+      - name: Empaqueter en .ipa
+        script: |
+          cd mobile/build/ios/iphoneos
+          mkdir -p Payload
+          cp -R Runner.app Payload/Runner.app
+          zip -r mysmartfridge.ipa Payload
+    artifacts:
+      - mobile/build/ios/iphoneos/*.ipa
