@@ -13,20 +13,29 @@ import '../domain/inventory_models.dart';
 const _units = ['pièce', 'g', 'kg', 'mL', 'L', 'paquet', 'boîte', 'tranche'];
 
 /// Ouvre le formulaire d'ajout de produit dans une bottom sheet.
-Future<void> showAddProductSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+///
+/// [prefill] pré-remplit le nom / la marque / le code-barre — typiquement après
+/// un scan code-barre (SCAN-4). Retourne `true` si un produit a été créé.
+Future<bool> showAddProductSheet(
+  BuildContext context, {
+  ProductPrefill? prefill,
+}) async {
+  final added = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     backgroundColor: AppColors.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (_) => const _AddProductSheet(),
+    builder: (_) => _AddProductSheet(prefill: prefill),
   );
+  return added ?? false;
 }
 
 class _AddProductSheet extends ConsumerStatefulWidget {
-  const _AddProductSheet();
+  const _AddProductSheet({this.prefill});
+
+  final ProductPrefill? prefill;
 
   @override
   ConsumerState<_AddProductSheet> createState() => _AddProductSheetState();
@@ -34,9 +43,13 @@ class _AddProductSheet extends ConsumerStatefulWidget {
 
 class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
+  late final _nameController =
+      TextEditingController(text: widget.prefill?.name ?? '');
+  late final _brandController =
+      TextEditingController(text: widget.prefill?.brand ?? '');
   final _quantityController = TextEditingController(text: '1');
-  final _barcodeController = TextEditingController();
+  late final _barcodeController =
+      TextEditingController(text: widget.prefill?.barcode ?? '');
 
   String? _locationId;
   String? _categoryId;
@@ -47,6 +60,7 @@ class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
   @override
   void dispose() {
     _nameController.dispose();
+    _brandController.dispose();
     _quantityController.dispose();
     _barcodeController.dispose();
     super.dispose();
@@ -70,6 +84,7 @@ class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
 
     setState(() => _submitting = true);
     final name = _nameController.text.trim();
+    final brand = _brandController.text.trim();
     final quantity =
         num.tryParse(_quantityController.text.trim().replaceAll(',', '.'));
     final barcode = _barcodeController.text.trim();
@@ -84,11 +99,12 @@ class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
               unit: _unit,
               expiresAt: _expiresAt,
               barcode: barcode.isEmpty ? null : barcode,
+              brand: brand.isEmpty ? null : brand,
             ),
           );
       ref.invalidate(inventoryProvider);
       if (!mounted) return;
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('« $name » ajouté')),
       );
@@ -165,7 +181,9 @@ class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
                   TextFormField(
                     controller: _nameController,
                     textCapitalization: TextCapitalization.sentences,
-                    autofocus: true,
+                    // Pas d'autofocus si le nom est déjà pré-rempli (scan) :
+                    // on évite d'ouvrir le clavier par-dessus le formulaire.
+                    autofocus: (widget.prefill?.name ?? '').isEmpty,
                     decoration: const InputDecoration(
                       labelText: 'Nom *',
                       hintText: 'Ex. Tomates',
@@ -174,6 +192,16 @@ class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
                     validator: (v) => (v == null || v.trim().isEmpty)
                         ? 'Le nom est obligatoire'
                         : null,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _brandController,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                      labelText: 'Marque (optionnel)',
+                      hintText: 'Ex. Bonduelle',
+                      prefixIcon: Icon(Icons.sell_outlined),
+                    ),
                   ),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(

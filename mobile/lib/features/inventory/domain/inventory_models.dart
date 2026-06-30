@@ -168,3 +168,14 @@ class ProductInput {
 /// Formate une date en `YYYY-MM-DD` (format attendu par l'API pour `expires_at`).
 String _formatYmd(DateTime d) =>
     '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+/// Valeurs de pré-remplissage du formulaire d'ajout, issues d'un scan
+/// code-barre (Open Food Facts) ou d'une saisie manuelle. Tous les champs sont
+/// optionnels : un code-barre inconnu ne renseigne que [barcode].
+class ProductPrefill {
+  const ProductPrefill({this.name, this.brand, this.barcode});
+
+  final String? name;
+  final String? brand;
+  final String? barcode;
+}
