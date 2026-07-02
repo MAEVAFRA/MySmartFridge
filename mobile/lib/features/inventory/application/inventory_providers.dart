@@ -68,6 +68,37 @@ final locationDetailProvider =
   return ref.read(inventoryRepositoryProvider).getLocation(id);
 });
 
+/// Catégories + nombre de produits par catégorie, pour l'écran de gestion
+/// (INV-14). Les catégories sont communes ; les comptages sont ceux du foyer.
+class CategoriesAdminData {
+  const CategoriesAdminData({required this.categories, required this.counts});
+
+  final List<Category> categories;
+  final Map<String, int> counts;
+
+  int countFor(String id) => counts[id] ?? 0;
+}
+
+final categoriesAdminProvider =
+    FutureProvider.autoDispose<CategoriesAdminData>((ref) async {
+  final repo = ref.read(inventoryRepositoryProvider);
+  final productsFuture = repo.getProducts();
+  final categories = await repo.getCategories();
+  final products = await productsFuture;
+  final counts = <String, int>{};
+  for (final p in products) {
+    final id = p.categoryId;
+    if (id != null) counts[id] = (counts[id] ?? 0) + 1;
+  }
+  return CategoriesAdminData(categories: categories, counts: counts);
+});
+
+/// Détail d'une catégorie + ses produits (INV-15, `GET /categories/:id`).
+final categoryDetailProvider =
+    FutureProvider.autoDispose.family<CategoryDetail, String>((ref, id) async {
+  return ref.read(inventoryRepositoryProvider).getCategory(id);
+});
+
 /// Données nécessaires au formulaire d'ajout : emplacements + catégories.
 class AddProductFormData {
   const AddProductFormData({required this.locations, required this.categories});

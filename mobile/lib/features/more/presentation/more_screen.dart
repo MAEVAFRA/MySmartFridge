@@ -42,6 +42,15 @@ class MoreScreen extends StatelessWidget {
           ),
           const Divider(height: 1),
           ListTile(
+            leading:
+                const Icon(Icons.category_outlined, color: AppColors.primary),
+            title: const Text('Catégories'),
+            subtitle: const Text('Icônes, couleurs, durées de conservation'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/categories'),
+          ),
+          const Divider(height: 1),
+          ListTile(
             leading: const Icon(Icons.tune, color: AppColors.primary),
             title: const Text('Paramètres'),
             subtitle: const Text('Thème, langue, à propos'),

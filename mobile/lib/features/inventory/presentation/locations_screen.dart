@@ -9,6 +9,7 @@ import '../../home/dashboard_provider.dart';
 import '../application/inventory_providers.dart';
 import '../data/inventory_repository.dart';
 import '../domain/inventory_models.dart';
+import 'form_choices.dart';
 import 'location_style.dart';
 
 /// Libellés des types d'emplacement (alignés sur le web).
@@ -458,14 +459,14 @@ class _LocationFormSheetState extends ConsumerState<_LocationFormSheet> {
                         onChanged: (v) => setState(() => _type = v ?? _type),
                       ),
                       const SizedBox(height: 18),
-                      const _FieldLabel('Icône'),
+                      const FieldLabel('Icône'),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: [
                           for (final ic in _iconPresets)
-                            _IconChoice(
+                            IconChoice(
                               icon: ic,
                               selected: _icon == ic,
                               onTap: () => setState(() => _icon = ic),
@@ -473,14 +474,14 @@ class _LocationFormSheetState extends ConsumerState<_LocationFormSheet> {
                         ],
                       ),
                       const SizedBox(height: 18),
-                      const _FieldLabel('Couleur'),
+                      const FieldLabel('Couleur'),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 10,
                         runSpacing: 10,
                         children: [
                           for (final c in _colorPresets)
-                            _ColorChoice(
+                            ColorChoice(
                               hex: c,
                               selected: _color.toLowerCase() == c.toLowerCase(),
                               onTap: () => setState(() => _color = c),
@@ -541,82 +542,3 @@ class _LocationFormSheetState extends ConsumerState<_LocationFormSheet> {
   }
 }
 
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textSecondary),
-    );
-  }
-}
-
-class _IconChoice extends StatelessWidget {
-  const _IconChoice(
-      {required this.icon, required this.selected, required this.onTap});
-
-  final String icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primaryLight : AppColors.background,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-              color: selected ? AppColors.primary : AppColors.border,
-              width: selected ? 2 : 1),
-        ),
-        alignment: Alignment.center,
-        child: Text(icon, style: const TextStyle(fontSize: 20)),
-      ),
-    );
-  }
-}
-
-class _ColorChoice extends StatelessWidget {
-  const _ColorChoice(
-      {required this.hex, required this.selected, required this.onTap});
-
-  final String hex;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = parseHexColor(hex) ?? AppColors.primary;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        width: 34,
-        height: 34,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: selected ? AppColors.textPrimary : Colors.transparent,
-            width: 2.5,
-          ),
-        ),
-        child: selected
-            ? const Icon(Icons.check, color: Colors.white, size: 18)
-            : null,
-      ),
-    );
-  }
-}

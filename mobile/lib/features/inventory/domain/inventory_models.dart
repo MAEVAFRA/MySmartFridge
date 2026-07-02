@@ -168,6 +168,54 @@ DateTime? estimateExpiryDate(
   return DateTime(base.year, base.month, base.day + days);
 }
 
+/// Données pour créer / modifier une catégorie (INV-14).
+class CategoryInput {
+  const CategoryInput({
+    required this.name,
+    required this.icon,
+    required this.colorHex,
+    this.avgShelfDays,
+    this.avgShelfDaysOpened,
+    this.avgShelfDaysFreezer,
+  });
+
+  final String name;
+  final String icon;
+  final String colorHex;
+  final int? avgShelfDays;
+  final int? avgShelfDaysOpened;
+  final int? avgShelfDaysFreezer;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'icon': icon,
+        'color': colorHex,
+        'avg_shelf_days': avgShelfDays,
+        'avg_shelf_days_opened': avgShelfDaysOpened,
+        'avg_shelf_days_freezer': avgShelfDaysFreezer,
+      };
+}
+
+/// Détail d'une catégorie avec ses produits (INV-15, `GET /categories/:id`).
+class CategoryDetail {
+  const CategoryDetail({required this.category, required this.products});
+
+  final Category category;
+  final List<Product> products;
+
+  factory CategoryDetail.fromJson(Map<String, dynamic> json) {
+    final rawProducts = json['products'];
+    return CategoryDetail(
+      category: Category.fromJson(json),
+      products: rawProducts is List
+          ? rawProducts
+              .map((e) => Product.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : const [],
+    );
+  }
+}
+
 /// Produit en stock. Les champs `location` et `category` sont imbriqués côté API.
 class Product {
   const Product({

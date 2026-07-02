@@ -1,4 +1,6 @@
-import 'package:flutter/foundation.dart';
+// `Category` est masqué : le modèle métier `Category` (inventory) prime sur
+// l'annotation homonyme de foundation, utilisée dans les routes de catégories.
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,6 +12,8 @@ import '../../features/auth/presentation/register_screen.dart';
 import '../../features/expiring/presentation/expiring_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/inventory/domain/inventory_models.dart';
+import '../../features/inventory/presentation/categories_screen.dart';
+import '../../features/inventory/presentation/category_detail_screen.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
 import '../../features/inventory/presentation/location_detail_screen.dart';
 import '../../features/inventory/presentation/locations_screen.dart';
@@ -37,6 +41,7 @@ const _shopping = '/shopping';
 const _more = '/more';
 const _serverSettings = '/server-settings';
 const _locations = '/locations';
+const _categories = '/categories';
 const _profile = '/profile';
 const _changePassword = '/change-password';
 const _settings = '/settings';
@@ -161,6 +166,35 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'product/:pid',
                 name: 'location-product-detail',
+                builder: (_, state) => ProductDetailScreen(
+                  productId: state.pathParameters['pid']!,
+                  initial:
+                      state.extra is Product ? state.extra as Product : null,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+
+      // Catégories (INV-14/15) : route plein écran poussée depuis « Plus ».
+      GoRoute(
+        path: _categories,
+        name: 'categories',
+        builder: (_, _) => const CategoriesScreen(),
+        routes: [
+          GoRoute(
+            path: ':id',
+            name: 'category-detail',
+            builder: (_, state) => CategoryDetailScreen(
+              categoryId: state.pathParameters['id']!,
+              initial:
+                  state.extra is Category ? state.extra as Category : null,
+            ),
+            routes: [
+              GoRoute(
+                path: 'product/:pid',
+                name: 'category-product-detail',
                 builder: (_, state) => ProductDetailScreen(
                   productId: state.pathParameters['pid']!,
                   initial:

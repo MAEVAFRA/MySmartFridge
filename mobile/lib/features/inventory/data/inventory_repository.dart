@@ -96,6 +96,30 @@ class InventoryRepository {
   Future<void> deleteLocation(String id) async {
     await _dio.delete('/locations/$id');
   }
+
+  // --- Catégories (INV-14/15) ---
+
+  /// Détail d'une catégorie avec ses produits (`GET /categories/:id`).
+  Future<CategoryDetail> getCategory(String id) async {
+    final res = await _dio.get('/categories/$id');
+    return CategoryDetail.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<Category> createCategory(CategoryInput input) async {
+    final res = await _dio.post('/categories', data: input.toJson());
+    return Category.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<Category> updateCategory(String id, CategoryInput input) async {
+    final res = await _dio.put('/categories/$id', data: input.toJson());
+    return Category.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  /// Supprime une catégorie. Les produits rattachés sont détachés côté serveur
+  /// (`category_id = null`), pas supprimés.
+  Future<void> deleteCategory(String id) async {
+    await _dio.delete('/categories/$id');
+  }
 }
 
 final inventoryRepositoryProvider = Provider<InventoryRepository>(
