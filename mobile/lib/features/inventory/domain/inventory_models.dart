@@ -6,6 +6,8 @@ class Location {
     required this.type,
     this.icon,
     this.colorHex,
+    this.temperatureCelsius,
+    this.displayOrder,
     this.isDefault = false,
   });
 
@@ -14,6 +16,10 @@ class Location {
   final String type; // fridge / freezer / pantry / ...
   final String? icon; // emoji renvoyé par l'API
   final String? colorHex; // ex. "#3b82f6"
+
+  /// Température de l'emplacement en °C (optionnelle).
+  final num? temperatureCelsius;
+  final int? displayOrder;
 
   /// Emplacement de destination par défaut (utilisé pour présélectionner la
   /// cible lors d'un transfert de courses vers le stock, SHOP-7).
@@ -26,7 +32,54 @@ class Location {
       type: json['type'] as String? ?? '',
       icon: json['icon'] as String?,
       colorHex: json['color'] as String?,
+      temperatureCelsius: json['temperature_celsius'] as num?,
+      displayOrder: _asInt(json['display_order']),
       isDefault: json['is_default'] == true,
+    );
+  }
+}
+
+/// Données pour créer / modifier un emplacement (INV-12).
+class LocationInput {
+  const LocationInput({
+    required this.name,
+    required this.type,
+    required this.icon,
+    required this.colorHex,
+    this.temperatureCelsius,
+  });
+
+  final String name;
+  final String type;
+  final String icon;
+  final String colorHex;
+  final num? temperatureCelsius;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'type': type,
+        'icon': icon,
+        'color': colorHex,
+        'temperature_celsius': temperatureCelsius,
+      };
+}
+
+/// Détail d'un emplacement avec ses produits (INV-13, `GET /locations/:id`).
+class LocationDetail {
+  const LocationDetail({required this.location, required this.products});
+
+  final Location location;
+  final List<Product> products;
+
+  factory LocationDetail.fromJson(Map<String, dynamic> json) {
+    final rawProducts = json['products'];
+    return LocationDetail(
+      location: Location.fromJson(json),
+      products: rawProducts is List
+          ? rawProducts
+              .map((e) => Product.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : const [],
     );
   }
 }

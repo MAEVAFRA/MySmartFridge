@@ -37,6 +37,37 @@ final locationsProvider = FutureProvider.autoDispose<List<Location>>((ref) async
   return ref.read(inventoryRepositoryProvider).getLocations();
 });
 
+/// Emplacements + nombre de produits par emplacement, pour l'écran de gestion
+/// (INV-12). Une seule passe sur les produits suffit à compter.
+class LocationsAdminData {
+  const LocationsAdminData({required this.locations, required this.counts});
+
+  final List<Location> locations;
+  final Map<String, int> counts;
+
+  int countFor(String id) => counts[id] ?? 0;
+}
+
+final locationsAdminProvider =
+    FutureProvider.autoDispose<LocationsAdminData>((ref) async {
+  final repo = ref.read(inventoryRepositoryProvider);
+  final productsFuture = repo.getProducts();
+  final locations = await repo.getLocations();
+  final products = await productsFuture;
+  final counts = <String, int>{};
+  for (final p in products) {
+    final id = p.locationId;
+    if (id != null) counts[id] = (counts[id] ?? 0) + 1;
+  }
+  return LocationsAdminData(locations: locations, counts: counts);
+});
+
+/// Détail d'un emplacement + ses produits (INV-13, `GET /locations/:id`).
+final locationDetailProvider =
+    FutureProvider.autoDispose.family<LocationDetail, String>((ref, id) async {
+  return ref.read(inventoryRepositoryProvider).getLocation(id);
+});
+
 /// Données nécessaires au formulaire d'ajout : emplacements + catégories.
 class AddProductFormData {
   const AddProductFormData({required this.locations, required this.categories});

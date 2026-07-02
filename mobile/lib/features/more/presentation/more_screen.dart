@@ -33,6 +33,15 @@ class MoreScreen extends StatelessWidget {
           ),
           const Divider(height: 1),
           ListTile(
+            leading:
+                const Icon(Icons.place_outlined, color: AppColors.primary),
+            title: const Text('Emplacements'),
+            subtitle: const Text('Frigo, congélateur, placards…'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/locations'),
+          ),
+          const Divider(height: 1),
+          ListTile(
             leading: const Icon(Icons.tune, color: AppColors.primary),
             title: const Text('Paramètres'),
             subtitle: const Text('Thème, langue, à propos'),

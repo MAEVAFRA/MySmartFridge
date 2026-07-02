@@ -72,6 +72,30 @@ class InventoryRepository {
       data: reason != null ? {'reason': reason.apiValue} : null,
     );
   }
+
+  // --- Emplacements (INV-12/13) ---
+
+  /// Détail d'un emplacement avec ses produits (`GET /locations/:id`).
+  Future<LocationDetail> getLocation(String id) async {
+    final res = await _dio.get('/locations/$id');
+    return LocationDetail.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<Location> createLocation(LocationInput input) async {
+    final res = await _dio.post('/locations', data: input.toJson());
+    return Location.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<Location> updateLocation(String id, LocationInput input) async {
+    final res = await _dio.put('/locations/$id', data: input.toJson());
+    return Location.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  /// Supprime un emplacement. Les produits rattachés sont détachés côté serveur
+  /// (`location_id = null`), pas supprimés.
+  Future<void> deleteLocation(String id) async {
+    await _dio.delete('/locations/$id');
+  }
 }
 
 final inventoryRepositoryProvider = Provider<InventoryRepository>(
