@@ -141,6 +141,62 @@ void main() {
     });
   });
 
+  group('estimation de la date de péremption (INV-9)', () {
+    const legumes = Category(
+      id: '1',
+      name: 'Légumes',
+      avgShelfDays: 7,
+      avgShelfDaysFreezer: 180,
+    );
+    const epicerie = Category(id: '2', name: 'Épicerie', avgShelfDays: 180);
+    const sansDuree = Category(id: '3', name: 'Autre');
+
+    test('estimateShelfDays privilégie le congélateur si renseigné', () {
+      expect(estimateShelfDays(legumes, 'freezer'), 180);
+      expect(estimateShelfDays(legumes, 'fridge'), 7);
+      expect(estimateShelfDays(legumes, null), 7);
+    });
+
+    test('estimateShelfDays retombe sur avg_shelf_days sans variante congélo',
+        () {
+      expect(estimateShelfDays(epicerie, 'freezer'), 180);
+    });
+
+    test('estimateShelfDays nul si la catégorie n\'a pas de durée', () {
+      expect(estimateShelfDays(sansDuree, 'fridge'), isNull);
+    });
+
+    test('estimateExpiryDate ajoute la durée à la date de base', () {
+      final from = DateTime(2026, 7, 2);
+      expect(estimateExpiryDate(legumes, 'fridge', from: from),
+          DateTime(2026, 7, 9));
+      expect(estimateExpiryDate(legumes, 'freezer', from: from),
+          DateTime(2026, 12, 29));
+    });
+
+    test('estimateExpiryDate nul sans durée', () {
+      expect(estimateExpiryDate(sansDuree, 'fridge', from: DateTime(2026, 7, 2)),
+          isNull);
+    });
+
+    test('Category.fromJson lit les durées de conservation', () {
+      final cat = Category.fromJson({
+        'id': 5,
+        'name': 'Produits laitiers',
+        'icon': '🥛',
+        'color': '#f59e0b',
+        'avg_shelf_days': 10,
+        'avg_shelf_days_opened': 3,
+        'avg_shelf_days_freezer': null,
+        'is_system': true,
+      });
+      expect(cat.avgShelfDays, 10);
+      expect(cat.avgShelfDaysOpened, 3);
+      expect(cat.avgShelfDaysFreezer, isNull);
+      expect(cat.isSystem, isTrue);
+    });
+  });
+
   group('Product.fromJson', () {
     test('lit les champs et la catégorie imbriquée', () {
       final product = Product.fromJson({

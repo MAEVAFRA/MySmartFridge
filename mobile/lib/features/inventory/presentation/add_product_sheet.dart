@@ -115,14 +115,33 @@ class _ProductSheetState extends ConsumerState<_ProductSheet> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
+    // À défaut de date saisie, on ouvre le sélecteur sur la date estimée depuis
+    // la catégorie (INV-9), sinon sur J+7.
+    var initial = _expiresAt ?? now.add(const Duration(days: 7));
+    if (_expiresAt == null) {
+      final estimated = _estimatedExpiry();
+      if (estimated != null) initial = estimated;
+    }
     final picked = await showDatePicker(
       context: context,
-      initialDate: _expiresAt ?? now.add(const Duration(days: 7)),
+      initialDate: initial,
       firstDate: DateTime(now.year - 1),
       lastDate: DateTime(now.year + 10),
       helpText: 'Date de péremption',
     );
     if (picked != null) setState(() => _expiresAt = picked);
+  }
+
+  /// Date de péremption estimée à partir de la catégorie et de l'emplacement
+  /// sélectionnés (INV-9), ou `null` si indisponible. Sert d'aperçu et de valeur
+  /// initiale du sélecteur ; l'estimation définitive reste faite côté serveur.
+  DateTime? _estimatedExpiry() {
+    final data = ref.read(addProductFormDataProvider).asData?.value;
+    if (data == null) return null;
+    final category = _categoryById(data.categories, _categoryId);
+    if (category == null) return null;
+    return estimateExpiryDate(
+        category, _locationTypeById(data.locations, _locationId));
   }
 
   Future<void> _submit() async {
@@ -364,9 +383,10 @@ class _ProductSheetState extends ConsumerState<_ProductSheet> {
                   const SizedBox(height: 14),
                   _DateField(
                     date: _expiresAt,
+                    estimatedDate:
+                        _expiresAt == null ? _estimatedExpiry() : null,
                     onTap: _pickDate,
                     onClear: () => setState(() => _expiresAt = null),
-                    hasCategory: _categoryId != null,
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
@@ -425,24 +445,33 @@ class _ProductSheetState extends ConsumerState<_ProductSheet> {
 }
 
 /// Champ de sélection de la date de péremption (optionnel).
+///
+/// Si aucune date n'est saisie mais qu'une [estimatedDate] est disponible (via
+/// la catégorie, INV-9), on l'affiche en aperçu : c'est la date qui sera
+/// appliquée automatiquement par le serveur si l'utilisateur ne la modifie pas.
 class _DateField extends StatelessWidget {
   const _DateField({
     required this.date,
+    required this.estimatedDate,
     required this.onTap,
     required this.onClear,
-    required this.hasCategory,
   });
 
   final DateTime? date;
+  final DateTime? estimatedDate;
   final VoidCallback onTap;
   final VoidCallback onClear;
-  final bool hasCategory;
 
   @override
   Widget build(BuildContext context) {
-    final label = date != null
-        ? DateFormat('dd/MM/yyyy').format(date!)
-        : (hasCategory ? 'Estimée selon la catégorie' : 'Aucune date');
+    final String label;
+    if (date != null) {
+      label = DateFormat('dd/MM/yyyy').format(date!);
+    } else if (estimatedDate != null) {
+      label = 'Estimée : ${DateFormat('dd/MM/yyyy').format(estimatedDate!)}';
+    } else {
+      label = 'Aucune date';
+    }
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -450,6 +479,9 @@ class _DateField extends StatelessWidget {
         decoration: InputDecoration(
           labelText: 'Date de péremption',
           prefixIcon: const Icon(Icons.event_outlined),
+          helperText: date == null && estimatedDate != null
+              ? 'Estimée depuis la catégorie — touchez pour ajuster'
+              : null,
           suffixIcon: date != null
               ? IconButton(
                   icon: const Icon(Icons.clear),
@@ -468,4 +500,22 @@ class _DateField extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Retrouve une catégorie par son id (ou `null`), sans dépendance externe.
+Category? _categoryById(List<Category> categories, String? id) {
+  if (id == null) return null;
+  for (final c in categories) {
+    if (c.id == id) return c;
+  }
+  return null;
+}
+
+/// Type de l'emplacement (`fridge`/`freezer`/…) par son id, ou `null`.
+String? _locationTypeById(List<Location> locations, String? id) {
+  if (id == null) return null;
+  for (final l in locations) {
+    if (l.id == id) return l.type;
+  }
+  return null;
 }

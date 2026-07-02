@@ -32,12 +32,21 @@ class Location {
 }
 
 /// Catégorie de produit (légumes, produits laitiers…).
+///
+/// Les durées de conservation ([avgShelfDays] / [avgShelfDaysFreezer]) servent à
+/// estimer automatiquement la date de péremption d'un produit (INV-9) ; elles
+/// sont éditables via la gestion des catégories (INV-14).
 class Category {
   const Category({
     required this.id,
     required this.name,
     this.icon,
     this.colorHex,
+    this.avgShelfDays,
+    this.avgShelfDaysOpened,
+    this.avgShelfDaysFreezer,
+    this.storageInstructions,
+    this.isSystem = true,
   });
 
   final String id;
@@ -45,14 +54,65 @@ class Category {
   final String? icon;
   final String? colorHex;
 
+  /// Durée de conservation moyenne (jours), à température ambiante / au frigo.
+  final int? avgShelfDays;
+
+  /// Durée de conservation une fois entamé (jours).
+  final int? avgShelfDaysOpened;
+
+  /// Durée de conservation au congélateur (jours).
+  final int? avgShelfDaysFreezer;
+  final String? storageInstructions;
+
+  /// Catégorie par défaut fournie par l'app (vs. créée par l'utilisateur).
+  final bool isSystem;
+
   factory Category.fromJson(Map<String, dynamic> json) {
     return Category(
       id: json['id'].toString(),
       name: json['name'] as String? ?? '',
       icon: json['icon'] as String?,
       colorHex: json['color'] as String?,
+      avgShelfDays: _asInt(json['avg_shelf_days']),
+      avgShelfDaysOpened: _asInt(json['avg_shelf_days_opened']),
+      avgShelfDaysFreezer: _asInt(json['avg_shelf_days_freezer']),
+      storageInstructions: json['storage_instructions'] as String?,
+      isSystem: json['is_system'] as bool? ?? true,
     );
   }
+}
+
+/// Convertit une valeur JSON (int, num ou chaîne) en `int?`, tolérant aux nulls.
+int? _asInt(Object? v) {
+  if (v == null) return null;
+  if (v is int) return v;
+  if (v is num) return v.toInt();
+  return int.tryParse(v.toString());
+}
+
+/// Durée de conservation estimée (jours) d'un produit d'une catégorie donnée,
+/// selon le type d'emplacement. Reflète la logique du backend : au congélateur,
+/// on privilégie [Category.avgShelfDaysFreezer] si elle est renseignée.
+/// Renvoie `null` si la catégorie n'a aucune durée exploitable.
+int? estimateShelfDays(Category category, String? locationType) {
+  if (locationType == 'freezer' && category.avgShelfDaysFreezer != null) {
+    return category.avgShelfDaysFreezer;
+  }
+  return category.avgShelfDays;
+}
+
+/// Date de péremption estimée pour un produit ([from] + durée de conservation),
+/// ou `null` si la catégorie n'a pas de durée. [from] défaut = aujourd'hui.
+/// Le calcul se fait en jours calendaires (minuit), comme côté serveur.
+DateTime? estimateExpiryDate(
+  Category category,
+  String? locationType, {
+  DateTime? from,
+}) {
+  final days = estimateShelfDays(category, locationType);
+  if (days == null) return null;
+  final base = from ?? DateTime.now();
+  return DateTime(base.year, base.month, base.day + days);
 }
 
 /// Produit en stock. Les champs `location` et `category` sont imbriqués côté API.
