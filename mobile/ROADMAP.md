@@ -29,7 +29,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 - ✅ **Auth** : login, register, forgot-password, restauration de session (`/auth/me`), logout. Complet de bout en bout.
 - ✅ **Accueil/Dashboard** : agrégation **côté client par 3 round-trips** (produits, expirants, emplacements), salutation, sections "À consommer vite" + "Mon stock", pull-to-refresh, états async, logout. Complet (lecture seule, items non cliquables). *Note de conception : `GET /stats` existe déjà côté API et pourrait remplacer une partie de cette agrégation maison (voir STAT-1).*
 - ✅ **Inventaire (liste)** : écran réel — produits regroupés par emplacement (icône/couleur), badges de péremption, quantité/unité, états chargement/erreur/vide, pull-to-refresh, **recherche (nom/marque) + filtres (emplacement, péremption) + tri (péremption/nom)** (INV-1/INV-2/INV-3/INV-4, UI-1), **fiche détail produit cliquable** (INV-5). Édition encore à faire (INV-7).
-- ✅ **Courses** : écran réel — listes du foyer (sélecteur + compteur coché/total), articles sectionnés à acheter/panier, **CRUD listes**, **ajout/suppression d'articles**, **cochage optimiste + haptique** (SHOP-1→5). Reste : ajout depuis l'inventaire (SHOP-6), transfert vers stock (SHOP-7).
+- ✅ **Courses** : écran réel — listes du foyer (sélecteur + compteur coché/total), articles sectionnés à acheter/panier, **CRUD listes**, **ajout/suppression d'articles**, **cochage optimiste + haptique** (SHOP-1→5), **ajout depuis l'inventaire** (multi-select + recherche + filtre stock bas, SHOP-6), **transfert des cochés vers le stock** (choix d'emplacement, SHOP-7) et **cochage résilient hors ligne** (file de synchronisation persistée, rejouée au retour réseau, SHOP-8). Epic complète.
 - ⬜ **Scanner / Plus** : 2 onglets sur 5 = `ComingSoonScreen` (placeholders).
 
 ### Dettes / manques transverses identifiés (vérifiés dans le code)
@@ -144,9 +144,9 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 | SHOP-3 | CRUD liste (créer/renommer/supprimer) | ✅ | P-Haute | M | `POST/PUT/DELETE /shopping-lists` | SHOP-2 |
 | SHOP-4 | Ajout/suppression article manuel | ✅ | P-Haute | M | `POST/DELETE /shopping-lists/:id/items` | SHOP-2 |
 | SHOP-5 | Cocher/décocher article (geste clé magasin + haptique) | ✅ | P-Haute | S | `PUT /shopping-lists/:id/items/:itemId` | SHOP-4 |
-| SHOP-6 | Ajout articles depuis inventaire (stock bas, multi-select) | ⬜ | P-Moy | M | `POST /shopping-lists/:id/items/from-inventory`, `GET /products` | SHOP-4 |
-| SHOP-7 | Transfert articles cochés → stock (choix emplacement) | ⬜ | P-Moy | M | `POST /shopping-lists/:id/transfer`, `GET /locations` | SHOP-5 |
-| SHOP-8 | Offline/optimistic sur le cochage | ⬜ | P-Basse | M | — | SHOP-5, OFFLINE-1 |
+| SHOP-6 | Ajout articles depuis inventaire (stock bas, multi-select) | ✅ | P-Moy | M | `POST /shopping-lists/:id/items/from-inventory`, `GET /products` | SHOP-4 |
+| SHOP-7 | Transfert articles cochés → stock (choix emplacement) | ✅ | P-Moy | M | `POST /shopping-lists/:id/transfer`, `GET /locations` | SHOP-5 |
+| SHOP-8 | Offline/optimistic sur le cochage | ✅ | P-Basse | M | — | SHOP-5, OFFLINE-1 |
 
 *Points d'attention.* Optimistic UI + haptique au cochage (usage debout en magasin, réseau instable). Epic **indépendante de l'inventaire** → peut être menée en parallèle par un second dev. Backend complet et totalement inutilisé côté mobile.
 
@@ -341,7 +341,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 | **Sérialisation produit** | INV-0 | ⬜ | Prérequis explicite de tout write produit (modèle `Product` read-only vérifié). |
 | **Design System & thème** | DS-1, DS-2 | ⬜ | Source unique (zip DS), retrait hex en dur ; dark en Phase 3. |
 | **Multi-foyer** | FOY-1, TECH-2 | ⬜ | **Hors chemin critique Phase 0** (backend retombe sur le 1er foyer). Persister `selectedHouseholdId`. |
-| **Hors-ligne / cache** | OFFLINE-1, SHOP-8 | ⬜ | Choix techno + réconciliation à trancher ; critique courses magasin. |
+| **Hors-ligne / cache** | OFFLINE-1, SHOP-8 | 🟠 | **SHOP-8 livré** (file de cochages persistée en secure storage, rejeu au retour réseau). OFFLINE-1 (cache lecture généralisé + choix techno DB) reste à trancher. |
 | **Plateforme mobile** | SCAN-0, SCAN-5/6, NOTIF-1, TECH-5/6, DEEP-LINK | ⬜ | Permissions runtime (caméra/notifs au manifest), cycle de vie caméra, PopScope, intent-filters/Universal Links. |
 | **Compression d'image** | INV-10, PROF-3, SCAN-7 | ⬜ | Photos caméra lourdes : redimensionner avant upload ; `image_picker` (galerie vs caméra). |
 | **Push notifications** | NOTIF-1 (local), NOTIF-2 (push) | ⬜ | Local faisable ; push nécessite backend à créer. |
