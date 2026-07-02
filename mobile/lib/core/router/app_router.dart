@@ -6,6 +6,7 @@ import '../../features/auth/application/auth_controller.dart';
 import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
+import '../../features/expiring/presentation/expiring_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/inventory/domain/inventory_models.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
@@ -24,6 +25,7 @@ const _forgot = '/forgot-password';
 const _home = '/home';
 const _inventory = '/inventory';
 const _scan = '/scan';
+const _expiring = '/expiring';
 const _shopping = '/shopping';
 const _more = '/more';
 const _serverSettings = '/server-settings';
@@ -100,6 +102,26 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           path: _serverSettings,
           name: 'server-settings',
           builder: (_, _) => const ApiSettingsScreen()),
+
+      // Péremptions (EXP-1/EXP-2) : route plein écran poussée depuis « Plus ».
+      // La fiche produit est un enfant pour rester sur le navigateur racine
+      // (pas de saut de branche du shell depuis un écran hors coquille).
+      GoRoute(
+        path: _expiring,
+        name: 'expiring',
+        builder: (_, _) => const ExpiringScreen(),
+        routes: [
+          GoRoute(
+            path: 'product/:id',
+            name: 'expiring-product-detail',
+            builder: (_, state) => ProductDetailScreen(
+              productId: state.pathParameters['id']!,
+              initial:
+                  state.extra is Product ? state.extra as Product : null,
+            ),
+          ),
+        ],
+      ),
 
       // Coquille connectée à onglets persistants (Accueil · Inventaire ·
       // Courses · Plus ; le Scanner central pousse la route ci-dessus).

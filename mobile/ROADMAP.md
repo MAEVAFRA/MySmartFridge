@@ -128,8 +128,8 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 
 | ID | Titre | Statut | Prio | Taille | Endpoints | Deps |
 |----|-------|--------|------|--------|-----------|------|
-| EXP-1 | Écran Péremptions : périmés + à venir, sélecteur fenêtre (3/7/14/30j) | ⬜ | P-Moy | M | `GET /products/expiring?days=:n` | INV-1 |
-| EXP-2 | Libellés relatifs + code couleur urgence (réutiliser helpers) | ⬜ | P-Moy | S | — | EXP-1 |
+| EXP-1 | Écran Péremptions : périmés + à venir, sélecteur fenêtre (3/7/14/30j) | ✅ | P-Moy | M | `GET /products/expiring?days=:n` | INV-1 |
+| EXP-2 | Libellés relatifs + code couleur urgence (réutiliser helpers) | ✅ | P-Moy | S | — | EXP-1 |
 
 *Parité web : page `/expiring`.*
 

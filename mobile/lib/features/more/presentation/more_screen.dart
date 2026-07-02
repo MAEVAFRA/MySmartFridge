@@ -15,6 +15,15 @@ class MoreScreen extends StatelessWidget {
       body: ListView(
         children: [
           ListTile(
+            leading:
+                const Icon(Icons.event_busy_outlined, color: AppColors.primary),
+            title: const Text('Péremptions'),
+            subtitle: const Text('Produits périmés et à venir'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/expiring'),
+          ),
+          const Divider(height: 1),
+          ListTile(
             leading: const Icon(Icons.dns_outlined, color: AppColors.primary),
             title: const Text('Serveur / API'),
             subtitle: const Text('Adresse du backend'),
