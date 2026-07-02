@@ -116,6 +116,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 4),
+            Center(
+              child: TextButton.icon(
+                onPressed:
+                    _loading ? null : () => context.push('/server-settings'),
+                icon: const Icon(Icons.dns_outlined, size: 18),
+                label: const Text('Configurer le serveur'),
+                style: TextButton.styleFrom(
+                    foregroundColor: AppColors.textSecondary),
+              ),
+            ),
           ],
         ),
       ),

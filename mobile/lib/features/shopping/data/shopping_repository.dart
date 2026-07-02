@@ -61,5 +61,5 @@ class ShoppingRepository {
 }
 
 final shoppingRepositoryProvider = Provider<ShoppingRepository>(
-  (ref) => ShoppingRepository(ref.read(dioProvider)),
+  (ref) => ShoppingRepository(ref.watch(dioProvider)),
 );

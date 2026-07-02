@@ -58,5 +58,5 @@ class InventoryRepository {
 }
 
 final inventoryRepositoryProvider = Provider<InventoryRepository>(
-  (ref) => InventoryRepository(ref.read(dioProvider)),
+  (ref) => InventoryRepository(ref.watch(dioProvider)),
 );

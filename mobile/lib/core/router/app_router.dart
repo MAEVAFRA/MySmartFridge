@@ -12,6 +12,7 @@ import '../../features/inventory/presentation/inventory_screen.dart';
 import '../../features/inventory/presentation/product_detail_screen.dart';
 import '../../features/more/presentation/more_screen.dart';
 import '../../features/scanner/presentation/scanner_screen.dart';
+import '../../features/settings/presentation/api_settings_screen.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shopping/presentation/shopping_screen.dart';
 import '../../features/splash/splash_screen.dart';
@@ -25,6 +26,7 @@ const _inventory = '/inventory';
 const _scan = '/scan';
 const _shopping = '/shopping';
 const _more = '/more';
+const _serverSettings = '/server-settings';
 
 const _authRoutes = {_login, _register, _forgot};
 
@@ -54,6 +56,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       if (auth is AuthUnknown) {
         return loc == _splash ? null : _splash;
       }
+
+      // L'écran de réglages du serveur reste accessible déconnecté : sans lui,
+      // impossible de corriger une mauvaise URL d'API pour pouvoir se connecter.
+      if (loc == _serverSettings) return null;
 
       final loggedIn = auth is AuthAuthenticated;
       if (!loggedIn) {
@@ -88,6 +94,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           path: _scan,
           name: 'scan',
           builder: (_, _) => const ScannerScreen()),
+
+      // Réglages du serveur : route plein écran, accessible connecté ou non.
+      GoRoute(
+          path: _serverSettings,
+          name: 'server-settings',
+          builder: (_, _) => const ApiSettingsScreen()),
 
       // Coquille connectée à onglets persistants (Accueil · Inventaire ·
       // Courses · Plus ; le Scanner central pousse la route ci-dessus).

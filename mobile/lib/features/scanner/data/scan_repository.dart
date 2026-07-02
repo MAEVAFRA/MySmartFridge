@@ -64,5 +64,5 @@ class ScanRepository {
 }
 
 final scanRepositoryProvider = Provider<ScanRepository>(
-  (ref) => ScanRepository(ref.read(dioProvider)),
+  (ref) => ScanRepository(ref.watch(dioProvider)),
 );

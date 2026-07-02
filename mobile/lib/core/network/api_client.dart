@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../features/auth/application/auth_controller.dart';
 import '../config/env.dart';
+import '../storage/settings_storage.dart';
 import '../storage/token_storage.dart';
 
 /// Stockage sécurisé bas niveau (Keychain iOS / Keystore Android).
@@ -17,15 +18,73 @@ final tokenStorageProvider = Provider<TokenStorage>(
   (ref) => TokenStorage(ref.read(secureStorageProvider)),
 );
 
+/// Persistance des réglages non sensibles (URL du backend).
+final settingsStorageProvider = Provider<SettingsStorage>(
+  (ref) => SettingsStorage(ref.read(secureStorageProvider)),
+);
+
+/// URL de base de l'API, configurable à l'exécution et persistée sur l'appareil.
+///
+/// Source de vérité du [dioProvider]. Indispensable pour une app installée hors
+/// magasin (sideload) : l'adresse du backend dépend du réseau (IP locale du PC,
+/// tunnel…) et ne peut donc pas être gravée dans le binaire.
+///
+/// Valeur initiale : celle enregistrée par l'utilisateur, injectée au démarrage
+/// via un override dans `main` ; à défaut, la valeur de compilation
+/// [Env.apiBaseUrl].
+class ApiBaseUrlController extends Notifier<String> {
+  ApiBaseUrlController(this._initial);
+
+  final String _initial;
+
+  @override
+  String build() => _initial;
+
+  /// Enregistre puis applique [url] (normalisée). Le [dioProvider] surveille cet
+  /// état, donc le changement se propage sans redémarrer l'application.
+  Future<void> set(String url) async {
+    final normalized = normalizeApiBaseUrl(url);
+    await ref.read(settingsStorageProvider).writeApiBaseUrl(normalized);
+    state = normalized;
+  }
+
+  /// Rétablit l'URL de compilation par défaut ([Env.apiBaseUrl]).
+  Future<void> resetToDefault() async {
+    await ref.read(settingsStorageProvider).clearApiBaseUrl();
+    state = Env.apiBaseUrl;
+  }
+}
+
+final apiBaseUrlProvider = NotifierProvider<ApiBaseUrlController, String>(
+  () => ApiBaseUrlController(Env.apiBaseUrl),
+);
+
+/// Normalise une URL saisie : préfixe `http://` si le schéma manque et retire
+/// le ou les slash finaux. Renvoie la valeur par défaut si l'entrée est vide.
+String normalizeApiBaseUrl(String raw) {
+  var url = raw.trim();
+  if (url.isEmpty) return Env.apiBaseUrl;
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'http://$url';
+  }
+  while (url.endsWith('/')) {
+    url = url.substring(0, url.length - 1);
+  }
+  return url;
+}
+
 /// Client HTTP Dio configuré pour l'API backend.
 ///
 /// Un intercepteur injecte automatiquement le token JWT sur chaque requête.
 final dioProvider = Provider<Dio>((ref) {
   final tokenStorage = ref.read(tokenStorageProvider);
+  // On surveille l'URL configurable : la modifier reconstruit le client, et les
+  // repositories qui l'observent repartent alors sur le nouveau backend.
+  final baseUrl = ref.watch(apiBaseUrlProvider);
 
   final dio = Dio(
     BaseOptions(
-      baseUrl: Env.apiBaseUrl,
+      baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 15),
       headers: {'Content-Type': 'application/json'},

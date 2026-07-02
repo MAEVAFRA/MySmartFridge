@@ -6,6 +6,15 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>MySmartFridge utilise la caméra pour scanner les codes-barres de vos produits et les ajouter à votre frigo.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>MySmartFridge se connecte au serveur backend sur votre réseau local (Wi-Fi / partage de connexion).</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Autorise le HTTP en clair : le backend de dev est joint par IP locale
+		     (http://…), qu'iOS bloquerait sinon. Le HTTPS reste utilisable tel quel. -->
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
