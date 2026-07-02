@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/async_state_views.dart';
 import '../../home/dashboard_provider.dart';
+import '../../scanner/data/scan_repository.dart';
 import '../application/inventory_providers.dart';
 import '../data/inventory_repository.dart';
 import '../domain/inventory_models.dart';
@@ -87,6 +88,7 @@ class _ProductSheetState extends ConsumerState<_ProductSheet> {
   // sérialise `image_url` que dans ce cas (sinon on préserve la photo existante).
   bool _imageChanged = false;
   bool _submitting = false;
+  bool _lookingUp = false;
 
   bool get _isEditing => widget.editing != null;
 
@@ -201,6 +203,56 @@ class _ProductSheetState extends ConsumerState<_ProductSheet> {
         _imageUrl = null;
         _imageChanged = true;
       });
+
+  /// Recherche le code-barre saisi via Open Food Facts (INV-11) et pré-remplit
+  /// nom / marque / photo. Complète le scan caméra (SCAN-4) pour une saisie
+  /// manuelle du code depuis le formulaire.
+  Future<void> _lookupBarcode() async {
+    final code = _barcodeController.text.trim();
+    final messenger = ScaffoldMessenger.of(context);
+    if (code.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Saisis un code-barres à rechercher.')),
+      );
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    setState(() => _lookingUp = true);
+    try {
+      final result = await ref.read(scanRepositoryProvider).lookupBarcode(code);
+      if (!mounted) return;
+      if (result == null) {
+        messenger.showSnackBar(
+          const SnackBar(
+              content: Text('Aucun produit trouvé pour ce code-barres.')),
+        );
+        return;
+      }
+      setState(() {
+        if (result.hasName) _nameController.text = result.name;
+        if (result.brand != null) _brandController.text = result.brand!;
+        // On ne remplace pas une photo déjà choisie par l'utilisateur.
+        if ((_imageUrl == null || _imageUrl!.isEmpty) &&
+            result.imageUrl != null) {
+          _imageUrl = result.imageUrl;
+          _imageChanged = true;
+        }
+      });
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            result.hasName ? '« ${result.name} » trouvé' : 'Produit trouvé',
+          ),
+        ),
+      );
+    } on ScanException catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _lookingUp = false);
+    }
+  }
 
   Future<void> _submit() async {
     final locationId = _locationId;
@@ -460,9 +512,26 @@ class _ProductSheetState extends ConsumerState<_ProductSheet> {
                   TextFormField(
                     controller: _barcodeController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
+                    textInputAction: TextInputAction.search,
+                    onFieldSubmitted: (_) => _lookupBarcode(),
+                    decoration: InputDecoration(
                       labelText: 'Code-barres (optionnel)',
-                      prefixIcon: Icon(Icons.qr_code),
+                      helperText: 'Recherche le produit sur Open Food Facts',
+                      prefixIcon: const Icon(Icons.qr_code),
+                      suffixIcon: _lookingUp
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.search),
+                              tooltip: 'Rechercher via le code-barres',
+                              onPressed: _lookupBarcode,
+                            ),
                     ),
                   ),
                   const SizedBox(height: 14),
