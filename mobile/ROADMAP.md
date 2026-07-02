@@ -95,15 +95,15 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 | INV-5 | Détail produit (route + écran) | ✅ | P-Moy | M | `GET /products/:id` | INV-2 |
 | INV-6 | **Ajout produit** (bottom sheet formulaire, charge catégories + emplacements) | ✅ | P-Haute | L | `POST /products`, `GET /locations`, `GET /categories` | INV-0, INV-2 |
 | INV-7 | Édition produit | ⬜ | P-Moy | M | `PUT /products/:id` | INV-6 |
-| INV-8 | Retrait/suppression produit avec motif (consommé/jeté/retiré) → stats gaspillage | ⬜ | P-Moy | M | `DELETE /products/:id` (body `{reason}`) | INV-5 |
-| INV-9 | Estimation auto date péremption (catégorie + type emplacement) | ⬜ | P-Basse | M | `GET /categories` | INV-6 |
-| INV-10 | Photo produit : choix caméra/galerie (`image_picker`) + **compression/redimensionnement avant upload** | ⬜ | P-Basse | M | `POST /products` (dataURL/multipart) | INV-6 |
-| INV-11 | Pré-remplissage produit via code-barre (depuis scanner) | ⬜ | P-Moy | M | `GET /products/barcode/:code` | INV-6, SCAN-2 |
-| INV-12 | Gestion emplacements : liste + CRUD | ⬜ | P-Basse | L | `GET/POST/PUT/DELETE /locations` | INV-2 |
-| INV-13 | Détail emplacement (produits de l'emplacement, comptage) | ⬜ | P-Basse | M | `GET /locations/:id` | INV-12 |
-| INV-14 | Gestion catégories : liste + CRUD + durées de conservation | ⬜ | P-Basse | L | `GET/POST/PUT/DELETE /categories` | — |
-| INV-15 | Détail catégorie | ⬜ | P-Basse | S | `GET /categories/:id` | INV-14 |
-| INV-16 | Pagination / lazy-load liste produits | ⬜ | P-Basse | M | `GET /products` | INV-2 |
+| INV-8 | Retrait/suppression produit avec motif (consommé/jeté/retiré) → stats gaspillage | ✅ | P-Moy | M | `DELETE /products/:id` (body `{reason}`) | INV-5 |
+| INV-9 | Estimation auto date péremption (catégorie + type emplacement) | ✅ | P-Basse | M | `GET /categories` | INV-6 |
+| INV-10 | Photo produit : choix caméra/galerie (`image_picker`) + **compression/redimensionnement avant upload** | ✅ | P-Basse | M | `POST /products` (dataURL/multipart) | INV-6 |
+| INV-11 | Pré-remplissage produit via code-barre (depuis scanner) | ✅ | P-Moy | M | `GET /products/barcode/:code` | INV-6, SCAN-2 |
+| INV-12 | Gestion emplacements : liste + CRUD | ✅ | P-Basse | L | `GET/POST/PUT/DELETE /locations` | INV-2 |
+| INV-13 | Détail emplacement (produits de l'emplacement, comptage) | ✅ | P-Basse | M | `GET /locations/:id` | INV-12 |
+| INV-14 | Gestion catégories : liste + CRUD + durées de conservation | ✅ | P-Basse | L | `GET/POST/PUT/DELETE /categories` | — |
+| INV-15 | Détail catégorie | ✅ | P-Basse | S | `GET /categories/:id` | INV-14 |
+| INV-16 | Pagination / lazy-load liste produits | ✅ | P-Basse | M | `GET /products` | INV-2 |
 
 *Points d'attention.* **INV-0 est un prérequis explicite, pas implicite** : sans sérialisation, INV-6 est sous-estimé ; INV-6 + INV-0 sur le chemin critique = réalistement **2,5-3j avec finition**. Réutiliser les helpers d'urgence/couleur/péremption déjà écrits dans `home_screen.dart` en les **extrayant en couche partagée** avant toute duplication dans Inventaire/Péremptions.
 
