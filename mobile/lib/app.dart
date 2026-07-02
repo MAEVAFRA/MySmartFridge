@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_controller.dart';
 
 /// Widget racine de l'application.
 class MySmartFridgeApp extends ConsumerWidget {
@@ -14,6 +15,8 @@ class MySmartFridgeApp extends ConsumerWidget {
       title: 'MySmartFridge',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ref.watch(themeModeProvider),
       routerConfig: ref.watch(goRouterProvider),
     );
   }

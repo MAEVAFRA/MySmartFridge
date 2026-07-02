@@ -103,6 +103,14 @@ class AuthController extends Notifier<AuthState> {
     );
   }
 
+  /// Remplace l'utilisateur courant (après une édition de profil réussie), afin
+  /// que le reste de l'app — salutation d'accueil, avatar… — reflète les
+  /// changements. Sans effet si l'on n'est pas connecté.
+  void setUser(User user) {
+    if (state is! AuthAuthenticated) return;
+    state = AuthAuthenticated(user);
+  }
+
   Future<void> logout() async {
     await _repo.logout();
     state = const AuthUnauthenticated();

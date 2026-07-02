@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/application/auth_controller.dart';
+import '../../features/auth/domain/auth_models.dart';
 import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
@@ -12,8 +13,12 @@ import '../../features/inventory/domain/inventory_models.dart';
 import '../../features/inventory/presentation/inventory_screen.dart';
 import '../../features/inventory/presentation/product_detail_screen.dart';
 import '../../features/more/presentation/more_screen.dart';
+import '../../features/profile/presentation/change_password_screen.dart';
+import '../../features/profile/presentation/edit_profile_screen.dart';
+import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/scanner/presentation/scanner_screen.dart';
 import '../../features/settings/presentation/api_settings_screen.dart';
+import '../../features/settings/presentation/app_settings_screen.dart';
 import '../../features/shell/presentation/app_shell.dart';
 import '../../features/shopping/presentation/shopping_screen.dart';
 import '../../features/splash/splash_screen.dart';
@@ -29,6 +34,9 @@ const _expiring = '/expiring';
 const _shopping = '/shopping';
 const _more = '/more';
 const _serverSettings = '/server-settings';
+const _profile = '/profile';
+const _changePassword = '/change-password';
+const _settings = '/settings';
 
 const _authRoutes = {_login, _register, _forgot};
 
@@ -102,6 +110,34 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           path: _serverSettings,
           name: 'server-settings',
           builder: (_, _) => const ApiSettingsScreen()),
+
+      // Profil (PROF-1) + édition (PROF-2/3) en enfant, poussés depuis « Plus ».
+      GoRoute(
+        path: _profile,
+        name: 'profile',
+        builder: (_, _) => const ProfileScreen(),
+        routes: [
+          GoRoute(
+            path: 'edit',
+            name: 'edit-profile',
+            builder: (_, state) => EditProfileScreen(
+              initial: state.extra is User ? state.extra as User : null,
+            ),
+          ),
+        ],
+      ),
+
+      // Changement de mot de passe (PROF-4).
+      GoRoute(
+          path: _changePassword,
+          name: 'change-password',
+          builder: (_, _) => const ChangePasswordScreen()),
+
+      // Paramètres de l'app : thème, langue, à propos (MORE-3).
+      GoRoute(
+          path: _settings,
+          name: 'settings',
+          builder: (_, _) => const AppSettingsScreen()),
 
       // Péremptions (EXP-1/EXP-2) : route plein écran poussée depuis « Plus ».
       // La fiche produit est un enfant pour rester sur le navigateur racine

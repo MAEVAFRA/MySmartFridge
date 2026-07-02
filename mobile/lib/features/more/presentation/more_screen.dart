@@ -16,11 +16,28 @@ class MoreScreen extends StatelessWidget {
         children: [
           ListTile(
             leading:
+                const Icon(Icons.person_outline, color: AppColors.primary),
+            title: const Text('Mon profil'),
+            subtitle: const Text('Infos, régimes, allergies, mot de passe'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/profile'),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading:
                 const Icon(Icons.event_busy_outlined, color: AppColors.primary),
             title: const Text('Péremptions'),
             subtitle: const Text('Produits périmés et à venir'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/expiring'),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.tune, color: AppColors.primary),
+            title: const Text('Paramètres'),
+            subtitle: const Text('Thème, langue, à propos'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings'),
           ),
           const Divider(height: 1),
           ListTile(
@@ -48,7 +65,6 @@ class MoreScreen extends StatelessWidget {
               label: 'Dépenses & budget'),
           const _SoonTile(icon: Icons.insights_outlined, label: 'Statistiques'),
           const _SoonTile(icon: Icons.groups_outlined, label: 'Foyer'),
-          const _SoonTile(icon: Icons.person_outline, label: 'Profil'),
         ],
       ),
     );

@@ -24,6 +24,8 @@ class User {
     required this.name,
     required this.email,
     this.avatarUrl,
+    this.dietaryPreferences,
+    this.allergies,
     this.households = const [],
   });
 
@@ -31,6 +33,14 @@ class User {
   final String name;
   final String email;
   final String? avatarUrl;
+
+  /// Régimes / préférences alimentaires, texte libre séparé par des virgules
+  /// (ex. « végétarien, sans gluten »). Alimente les suggestions anti-gaspi.
+  final String? dietaryPreferences;
+
+  /// Allergies, texte libre séparé par des virgules (ex. « arachides, lactose »).
+  final String? allergies;
+
   final List<Household> households;
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -40,10 +50,35 @@ class User {
       name: json['name'] as String? ?? '',
       email: json['email'] as String? ?? '',
       avatarUrl: json['avatar_url'] as String?,
+      dietaryPreferences: json['dietary_preferences'] as String?,
+      allergies: json['allergies'] as String?,
       households: rawHouseholds
               ?.map((e) => Household.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
+    );
+  }
+
+  /// Copie en remplaçant certains champs. Pour les champs nullables, un
+  /// indicateur dédié permet de forcer la remise à `null` (retrait d'avatar…),
+  /// qu'un simple paramètre nullable ne saurait distinguer d'« inchangé ».
+  User copyWith({
+    String? name,
+    String? email,
+    String? avatarUrl,
+    bool clearAvatar = false,
+    String? dietaryPreferences,
+    String? allergies,
+    List<Household>? households,
+  }) {
+    return User(
+      id: id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      avatarUrl: clearAvatar ? null : (avatarUrl ?? this.avatarUrl),
+      dietaryPreferences: dietaryPreferences ?? this.dietaryPreferences,
+      allergies: allergies ?? this.allergies,
+      households: households ?? this.households,
     );
   }
 

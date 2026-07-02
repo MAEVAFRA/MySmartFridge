@@ -58,6 +58,46 @@ class AuthRepository {
     return User.fromJson(res.data['user'] as Map<String, dynamic>);
   }
 
+  /// Met à jour le profil (nom, email, régimes/allergies, photo) et renvoie
+  /// l'utilisateur rafraîchi. Les champs texte vides ou une photo à `null` sont
+  /// envoyés tels quels : le backend interprète une chaîne vide comme un
+  /// effacement du champ.
+  Future<User> updateProfile({
+    required String name,
+    required String email,
+    required String? avatarUrl,
+    required String? dietaryPreferences,
+    required String? allergies,
+  }) async {
+    try {
+      final res = await _dio.put('/auth/profile', data: {
+        'name': name,
+        'email': email,
+        'avatar_url': avatarUrl ?? '',
+        'dietary_preferences': dietaryPreferences ?? '',
+        'allergies': allergies ?? '',
+      });
+      return User.fromJson(res.data['user'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw AuthException(_messageFrom(e));
+    }
+  }
+
+  /// Change le mot de passe. Le backend vérifie le mot de passe actuel.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      await _dio.put('/auth/password', data: {
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      });
+    } on DioException catch (e) {
+      throw AuthException(_messageFrom(e));
+    }
+  }
+
   /// Demande un email de réinitialisation. Renvoie le message de l'API.
   Future<String> forgotPassword(String email) async {
     try {

@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'app.dart';
 import 'core/network/api_client.dart';
 import 'core/storage/settings_storage.dart';
+import 'core/theme/theme_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,11 +16,12 @@ Future<void> main() async {
   Intl.defaultLocale = 'fr_FR';
   await initializeDateFormatting('fr_FR');
 
-  // On charge l'URL du backend éventuellement configurée par l'utilisateur
-  // AVANT de construire l'app, pour que le client réseau démarre sur la bonne
-  // cible (sinon la première requête partirait vers l'URL par défaut).
-  final savedApiBaseUrl =
-      await SettingsStorage(const FlutterSecureStorage()).readApiBaseUrl();
+  // On charge les réglages persistés AVANT de construire l'app :
+  //  - l'URL du backend, pour que le client réseau démarre sur la bonne cible ;
+  //  - le mode de thème, pour éviter un flash de thème au lancement.
+  final settings = SettingsStorage(const FlutterSecureStorage());
+  final savedApiBaseUrl = await settings.readApiBaseUrl();
+  final savedThemeMode = themeModeFromString(await settings.readThemeMode());
 
   runApp(
     ProviderScope(
@@ -27,6 +29,7 @@ Future<void> main() async {
         if (savedApiBaseUrl != null && savedApiBaseUrl.isNotEmpty)
           apiBaseUrlProvider
               .overrideWith(() => ApiBaseUrlController(savedApiBaseUrl)),
+        themeModeProvider.overrideWith(() => ThemeModeController(savedThemeMode)),
       ],
       child: const MySmartFridgeApp(),
     ),

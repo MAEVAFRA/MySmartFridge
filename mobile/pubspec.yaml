@@ -41,6 +41,12 @@ dependencies:
   intl: ^0.20.2
   mobile_scanner: ^7.2.0
   permission_handler: ^12.0.3
+  # PROF-3 : sélection + compression de la photo de profil (galerie/caméra).
+  # La config native est déjà en place (permission CAMERA au manifest Android,
+  # NSCameraUsageDescription / NSPhotoLibraryUsageDescription dans Info.plist).
+  image_picker: ^1.1.2
+  # MORE-3 : version de l'app pour l'écran « À propos ».
+  package_info_plus: ^8.1.2
 
 dev_dependencies:
   flutter_test:
