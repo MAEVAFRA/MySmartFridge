@@ -7,6 +7,7 @@ import '../../../core/utils/expiry.dart';
 import '../../../core/widgets/async_state_views.dart';
 import '../application/inventory_providers.dart';
 import '../domain/inventory_models.dart';
+import 'add_product_sheet.dart';
 import 'location_style.dart';
 
 /// Fiche détaillée d'un produit (INV-5).
@@ -49,6 +50,13 @@ class ProductDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(product.name,
             style: const TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Modifier',
+            onPressed: () => showEditProductSheet(context, product: product),
+          ),
+        ],
         bottom: async.isLoading
             ? const PreferredSize(
                 preferredSize: Size.fromHeight(2),

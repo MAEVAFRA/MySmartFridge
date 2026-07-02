@@ -55,6 +55,13 @@ class InventoryRepository {
   Future<void> createProduct(ProductInput input) async {
     await _dio.post('/products', data: input.toJson());
   }
+
+  /// Modifie un produit existant (INV-7). Le backend renvoie le produit à jour
+  /// (emplacement/catégorie inclus) ; on le retourne pour l'appelant.
+  Future<Product> updateProduct(String id, ProductInput input) async {
+    final res = await _dio.put('/products/$id', data: input.toUpdateJson());
+    return Product.fromJson(res.data as Map<String, dynamic>);
+  }
 }
 
 final inventoryRepositoryProvider = Provider<InventoryRepository>(

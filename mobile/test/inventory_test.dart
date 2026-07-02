@@ -96,6 +96,51 @@ void main() {
     });
   });
 
+  group('ProductInput.toUpdateJson', () {
+    test('envoie null explicite pour vider les champs optionnels', () {
+      final json = const ProductInput(name: 'Tomates', locationId: '1')
+          .toUpdateJson();
+      // Les clés doivent être présentes (à null) pour effacer côté serveur.
+      expect(json.containsKey('category_id'), isTrue);
+      expect(json['category_id'], isNull);
+      expect(json.containsKey('expires_at'), isTrue);
+      expect(json['expires_at'], isNull);
+      expect(json['barcode'], isNull);
+      expect(json['brand'], isNull);
+      expect(json['notes'], isNull);
+    });
+
+    test('omet price et image_url (préservés par le backend)', () {
+      final json = const ProductInput(name: 'X', locationId: '1')
+          .toUpdateJson();
+      expect(json.containsKey('price'), isFalse);
+      expect(json.containsKey('image_url'), isFalse);
+    });
+
+    test('sérialise les champs renseignés', () {
+      final json = ProductInput(
+        name: 'Lait',
+        locationId: '1',
+        categoryId: '2',
+        quantity: 2,
+        unit: 'L',
+        expiresAt: DateTime(2026, 7, 1),
+        barcode: '123',
+        brand: 'Lactel',
+        notes: 'entamé',
+      ).toUpdateJson();
+      expect(json['name'], 'Lait');
+      expect(json['location_id'], '1');
+      expect(json['category_id'], '2');
+      expect(json['quantity'], 2);
+      expect(json['unit'], 'L');
+      expect(json['expires_at'], '2026-07-01');
+      expect(json['barcode'], '123');
+      expect(json['brand'], 'Lactel');
+      expect(json['notes'], 'entamé');
+    });
+  });
+
   group('Product.fromJson', () {
     test('lit les champs et la catégorie imbriquée', () {
       final product = Product.fromJson({

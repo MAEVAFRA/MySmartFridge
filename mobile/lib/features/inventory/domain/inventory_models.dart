@@ -163,6 +163,25 @@ class ProductInput {
         if (brand != null && brand!.isNotEmpty) 'brand': brand,
         if (notes != null && notes!.isNotEmpty) 'notes': notes,
       };
+
+  /// Sérialisation pour l'édition (`PUT /products/:id`, INV-7).
+  ///
+  /// Contrairement à [toJson] (création), on envoie explicitement `null` pour
+  /// les champs optionnels vidés afin de pouvoir les **effacer**. Les champs non
+  /// gérés par le formulaire mobile (`price`, `image_url`) sont volontairement
+  /// omis : Sequelize retire les clés `undefined` avant l'UPDATE, donc leur
+  /// valeur existante est préservée côté serveur.
+  Map<String, dynamic> toUpdateJson() => {
+        'name': name,
+        'location_id': locationId,
+        'category_id': categoryId,
+        'quantity': quantity,
+        'unit': (unit != null && unit!.isNotEmpty) ? unit : null,
+        'expires_at': expiresAt != null ? _formatYmd(expiresAt!) : null,
+        'barcode': (barcode != null && barcode!.isNotEmpty) ? barcode : null,
+        'brand': (brand != null && brand!.isNotEmpty) ? brand : null,
+        'notes': (notes != null && notes!.isNotEmpty) ? notes : null,
+      };
 }
 
 /// Formate une date en `YYYY-MM-DD` (format attendu par l'API pour `expires_at`).

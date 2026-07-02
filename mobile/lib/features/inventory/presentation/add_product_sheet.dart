@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/async_state_views.dart';
+import '../../home/dashboard_provider.dart';
 import '../application/inventory_providers.dart';
 import '../data/inventory_repository.dart';
 import '../domain/inventory_models.dart';
@@ -19,43 +20,88 @@ const _units = ['pièce', 'g', 'kg', 'mL', 'L', 'paquet', 'boîte', 'tranche'];
 Future<bool> showAddProductSheet(
   BuildContext context, {
   ProductPrefill? prefill,
+}) {
+  return _showProductSheet(context, prefill: prefill);
+}
+
+/// Ouvre le formulaire d'édition d'un produit existant (INV-7), pré-rempli avec
+/// ses valeurs actuelles. Retourne `true` si le produit a été modifié.
+Future<bool> showEditProductSheet(
+  BuildContext context, {
+  required Product product,
+}) {
+  return _showProductSheet(context, editing: product);
+}
+
+Future<bool> _showProductSheet(
+  BuildContext context, {
+  ProductPrefill? prefill,
+  Product? editing,
 }) async {
-  final added = await showModalBottomSheet<bool>(
+  final saved = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     backgroundColor: AppColors.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (_) => _AddProductSheet(prefill: prefill),
+    builder: (_) => _ProductSheet(prefill: prefill, editing: editing),
   );
-  return added ?? false;
+  return saved ?? false;
 }
 
-class _AddProductSheet extends ConsumerStatefulWidget {
-  const _AddProductSheet({this.prefill});
+/// Formulaire produit partagé entre l'ajout et l'édition. En mode édition
+/// ([editing] non nul), les champs sont pré-remplis et l'enregistrement fait un
+/// `PUT` ; sinon un `POST` de création.
+class _ProductSheet extends ConsumerStatefulWidget {
+  const _ProductSheet({this.prefill, this.editing});
 
   final ProductPrefill? prefill;
+  final Product? editing;
 
   @override
-  ConsumerState<_AddProductSheet> createState() => _AddProductSheetState();
+  ConsumerState<_ProductSheet> createState() => _ProductSheetState();
 }
 
-class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
+class _ProductSheetState extends ConsumerState<_ProductSheet> {
   final _formKey = GlobalKey<FormState>();
-  late final _nameController =
-      TextEditingController(text: widget.prefill?.name ?? '');
-  late final _brandController =
-      TextEditingController(text: widget.prefill?.brand ?? '');
-  final _quantityController = TextEditingController(text: '1');
-  late final _barcodeController =
-      TextEditingController(text: widget.prefill?.barcode ?? '');
+  late final _nameController = TextEditingController(
+      text: widget.editing?.name ?? widget.prefill?.name ?? '');
+  late final _brandController = TextEditingController(
+      text: widget.editing?.brand ?? widget.prefill?.brand ?? '');
+  late final _quantityController =
+      TextEditingController(text: _initialQuantityText());
+  late final _barcodeController = TextEditingController(
+      text: widget.editing?.barcode ?? widget.prefill?.barcode ?? '');
+  late final _notesController =
+      TextEditingController(text: widget.editing?.notes ?? '');
 
   String? _locationId;
   String? _categoryId;
-  String _unit = 'pièce';
+  late String _unit;
   DateTime? _expiresAt;
   bool _submitting = false;
+
+  bool get _isEditing => widget.editing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final editing = widget.editing;
+    _locationId = editing?.locationId;
+    _categoryId = editing?.categoryId;
+    _expiresAt = editing?.expiresAt;
+    final unit = editing?.unit;
+    _unit = (unit != null && unit.isNotEmpty) ? unit : 'pièce';
+  }
+
+  /// Quantité initiale : celle du produit édité (sans décimale superflue),
+  /// sinon « 1 » par défaut à la création.
+  String _initialQuantityText() {
+    final q = widget.editing?.quantity;
+    if (q == null) return _isEditing ? '' : '1';
+    return q % 1 == 0 ? q.toInt().toString() : q.toString();
+  }
 
   @override
   void dispose() {
@@ -63,6 +109,7 @@ class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
     _brandController.dispose();
     _quantityController.dispose();
     _barcodeController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -88,32 +135,52 @@ class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
     final quantity =
         num.tryParse(_quantityController.text.trim().replaceAll(',', '.'));
     final barcode = _barcodeController.text.trim();
+    final notes = _notesController.text.trim();
 
+    final input = ProductInput(
+      name: name,
+      locationId: locationId,
+      categoryId: _categoryId,
+      quantity: quantity,
+      unit: _unit,
+      expiresAt: _expiresAt,
+      barcode: barcode.isEmpty ? null : barcode,
+      brand: brand.isEmpty ? null : brand,
+      notes: notes.isEmpty ? null : notes,
+    );
+
+    // Le messenger est capturé avant le pop : après fermeture de la sheet, son
+    // `context` est démonté et ne permettrait plus de retrouver le ScaffoldMessenger.
+    final messenger = ScaffoldMessenger.of(context);
+    final editing = widget.editing;
     try {
-      await ref.read(inventoryRepositoryProvider).createProduct(
-            ProductInput(
-              name: name,
-              locationId: locationId,
-              categoryId: _categoryId,
-              quantity: quantity,
-              unit: _unit,
-              expiresAt: _expiresAt,
-              barcode: barcode.isEmpty ? null : barcode,
-              brand: brand.isEmpty ? null : brand,
-            ),
-          );
+      final repo = ref.read(inventoryRepositoryProvider);
+      if (editing != null) {
+        await repo.updateProduct(editing.id, input);
+        ref.invalidate(productDetailProvider(editing.id));
+      } else {
+        await repo.createProduct(input);
+      }
       ref.invalidate(inventoryProvider);
+      ref.invalidate(dashboardProvider);
       if (!mounted) return;
       Navigator.of(context).pop(true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('« $name » ajouté')),
+      messenger.showSnackBar(
+        SnackBar(
+          content:
+              Text(editing != null ? '« $name » modifié' : '« $name » ajouté'),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Échec de l\'ajout. Vérifie ta connexion et réessaie.'),
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            editing != null
+                ? 'Échec de la modification. Vérifie ta connexion et réessaie.'
+                : 'Échec de l\'ajout. Vérifie ta connexion et réessaie.',
+          ),
         ),
       );
     }
@@ -145,8 +212,13 @@ class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
   }
 
   Widget _buildForm(AddProductFormData data) {
-    // Emplacement par défaut : le premier de la liste.
+    // Emplacement par défaut (création) : le premier de la liste.
     _locationId ??= data.locations.isNotEmpty ? data.locations.first.id : null;
+
+    // L'unité d'un produit édité peut ne pas figurer dans la liste par défaut
+    // (ex. produit créé côté web avec « unité ») : on l'ajoute en tête pour
+    // éviter un Dropdown dont la valeur ne correspond à aucune option.
+    final unitOptions = _units.contains(_unit) ? _units : [_unit, ..._units];
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -160,13 +232,13 @@ class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
             borderRadius: BorderRadius.circular(2),
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
           child: Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Ajouter un produit',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              _isEditing ? 'Modifier le produit' : 'Ajouter un produit',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -181,9 +253,10 @@ class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
                   TextFormField(
                     controller: _nameController,
                     textCapitalization: TextCapitalization.sentences,
-                    // Pas d'autofocus si le nom est déjà pré-rempli (scan) :
-                    // on évite d'ouvrir le clavier par-dessus le formulaire.
-                    autofocus: (widget.prefill?.name ?? '').isEmpty,
+                    // Pas d'autofocus en édition ni si le nom est déjà rempli
+                    // (scan) : on évite d'ouvrir le clavier par-dessus le form.
+                    autofocus:
+                        !_isEditing && (widget.prefill?.name ?? '').isEmpty,
                     decoration: const InputDecoration(
                       labelText: 'Nom *',
                       hintText: 'Ex. Tomates',
@@ -215,7 +288,9 @@ class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
                         DropdownMenuItem(
                           value: loc.id,
                           child: Text(
-                            loc.icon != null ? '${loc.icon}  ${loc.name}' : loc.name,
+                            loc.icon != null
+                                ? '${loc.icon}  ${loc.name}'
+                                : loc.name,
                           ),
                         ),
                     ],
@@ -237,7 +312,9 @@ class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
                         DropdownMenuItem(
                           value: cat.id,
                           child: Text(
-                            cat.icon != null ? '${cat.icon}  ${cat.name}' : cat.name,
+                            cat.icon != null
+                                ? '${cat.icon}  ${cat.name}'
+                                : cat.name,
                           ),
                         ),
                     ],
@@ -262,7 +339,8 @@ class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
                           ),
                           validator: (v) {
                             if (v == null || v.trim().isEmpty) return null;
-                            return num.tryParse(v.trim().replaceAll(',', '.')) ==
+                            return num.tryParse(
+                                        v.trim().replaceAll(',', '.')) ==
                                     null
                                 ? 'Nombre invalide'
                                 : null;
@@ -275,11 +353,10 @@ class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
                           initialValue: _unit,
                           decoration: const InputDecoration(labelText: 'Unité'),
                           items: [
-                            for (final u in _units)
+                            for (final u in unitOptions)
                               DropdownMenuItem(value: u, child: Text(u)),
                           ],
-                          onChanged: (v) =>
-                              setState(() => _unit = v ?? _unit),
+                          onChanged: (v) => setState(() => _unit = v ?? _unit),
                         ),
                       ),
                     ],
@@ -298,6 +375,19 @@ class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
                     decoration: const InputDecoration(
                       labelText: 'Code-barres (optionnel)',
                       prefixIcon: Icon(Icons.qr_code),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _notesController,
+                    textCapitalization: TextCapitalization.sentences,
+                    minLines: 1,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Notes (optionnel)',
+                      hintText: 'Ex. entamé, pour la recette de samedi…',
+                      prefixIcon: Icon(Icons.notes_outlined),
+                      alignLabelWithHint: true,
                     ),
                   ),
                 ],
@@ -319,13 +409,18 @@ class _AddProductSheetState extends ConsumerState<_AddProductSheet> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white),
                     )
-                  : const Icon(Icons.check),
-              label: Text(_submitting ? 'Ajout…' : 'Ajouter'),
+                  : Icon(_isEditing ? Icons.save_outlined : Icons.check),
+              label: Text(_submitLabel),
             ),
           ),
         ),
       ],
     );
+  }
+
+  String get _submitLabel {
+    if (_isEditing) return _submitting ? 'Enregistrement…' : 'Enregistrer';
+    return _submitting ? 'Ajout…' : 'Ajouter';
   }
 }
 
@@ -366,9 +461,8 @@ class _DateField extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color: date != null
-                ? AppColors.textPrimary
-                : AppColors.textSecondary,
+            color:
+                date != null ? AppColors.textPrimary : AppColors.textSecondary,
           ),
         ),
       ),
