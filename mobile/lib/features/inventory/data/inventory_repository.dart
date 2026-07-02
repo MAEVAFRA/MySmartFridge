@@ -62,6 +62,16 @@ class InventoryRepository {
     final res = await _dio.put('/products/$id', data: input.toUpdateJson());
     return Product.fromJson(res.data as Map<String, dynamic>);
   }
+
+  /// Retire un produit du stock (INV-8, soft delete côté serveur). Le [reason]
+  /// optionnel (`consumed` / `thrown`) est journalisé pour alimenter les
+  /// statistiques de gaspillage ; `null` = simple retrait sans comptage.
+  Future<void> deleteProduct(String id, {ProductRemovalReason? reason}) async {
+    await _dio.delete(
+      '/products/$id',
+      data: reason != null ? {'reason': reason.apiValue} : null,
+    );
+  }
 }
 
 final inventoryRepositoryProvider = Provider<InventoryRepository>(

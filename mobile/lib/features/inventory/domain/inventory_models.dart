@@ -6,6 +6,7 @@ class Location {
     required this.type,
     this.icon,
     this.colorHex,
+    this.isDefault = false,
   });
 
   final String id;
@@ -14,6 +15,10 @@ class Location {
   final String? icon; // emoji renvoyé par l'API
   final String? colorHex; // ex. "#3b82f6"
 
+  /// Emplacement de destination par défaut (utilisé pour présélectionner la
+  /// cible lors d'un transfert de courses vers le stock, SHOP-7).
+  final bool isDefault;
+
   factory Location.fromJson(Map<String, dynamic> json) {
     return Location(
       id: json['id'].toString(),
@@ -21,6 +26,7 @@ class Location {
       type: json['type'] as String? ?? '',
       icon: json['icon'] as String?,
       colorHex: json['color'] as String?,
+      isDefault: json['is_default'] == true,
     );
   }
 }
@@ -61,6 +67,7 @@ class Product {
     this.locationColorHex,
     this.locationType,
     this.quantity,
+    this.quantityMin,
     this.unit,
     this.barcode,
     this.brand,
@@ -82,6 +89,9 @@ class Product {
   final String? locationColorHex;
   final String? locationType;
   final num? quantity;
+
+  /// Seuil de stock bas (`quantity_min`). `0` (ou nul) signifie « pas de seuil ».
+  final num? quantityMin;
   final String? unit;
   final String? barcode;
   final String? brand;
@@ -92,6 +102,14 @@ class Product {
   final num? price;
   final String? notes;
   final DateTime? createdAt;
+
+  /// Vrai si un seuil de stock bas est défini et que la quantité l'atteint —
+  /// sert au filtre « stock bas » de l'ajout de courses depuis l'inventaire.
+  bool get isLowStock {
+    final min = quantityMin;
+    final qty = quantity;
+    return min != null && min > 0 && qty != null && qty <= min;
+  }
 
   factory Product.fromJson(Map<String, dynamic> json) {
     final loc = json['location'];
@@ -110,6 +128,7 @@ class Product {
       locationColorHex: isLoc ? loc['color'] as String? : null,
       locationType: isLoc ? loc['type'] as String? : null,
       quantity: json['quantity'] as num?,
+      quantityMin: json['quantity_min'] as num?,
       unit: json['unit'] as String?,
       barcode: json['barcode'] as String?,
       brand: json['brand'] as String?,
@@ -187,6 +206,22 @@ class ProductInput {
 /// Formate une date en `YYYY-MM-DD` (format attendu par l'API pour `expires_at`).
 String _formatYmd(DateTime d) =>
     '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+/// Motif de retrait d'un produit du stock (INV-8). Envoyé au backend qui le
+/// journalise pour les statistiques de consommation / gaspillage. Le retrait
+/// « sans motif » (juste sortir du stock) est représenté par l'absence de valeur.
+enum ProductRemovalReason {
+  /// Produit consommé (compté comme « bien utilisé »).
+  consumed('consumed'),
+
+  /// Produit jeté / périmé (compté comme gaspillage).
+  thrown('thrown');
+
+  const ProductRemovalReason(this.apiValue);
+
+  /// Valeur attendue par l'API dans le corps du `DELETE`.
+  final String apiValue;
+}
 
 /// Valeurs de pré-remplissage du formulaire d'ajout, issues d'un scan
 /// code-barre (Open Food Facts) ou d'une saisie manuelle. Tous les champs sont

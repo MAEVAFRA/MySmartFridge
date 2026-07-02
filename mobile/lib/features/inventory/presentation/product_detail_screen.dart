@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/expiry.dart';
 import '../../../core/widgets/async_state_views.dart';
+import '../../home/dashboard_provider.dart';
 import '../application/inventory_providers.dart';
+import '../data/inventory_repository.dart';
 import '../domain/inventory_models.dart';
 import 'add_product_sheet.dart';
 import 'location_style.dart';
@@ -55,6 +58,11 @@ class ProductDetailScreen extends ConsumerWidget {
             icon: const Icon(Icons.edit_outlined),
             tooltip: 'Modifier',
             onPressed: () => showEditProductSheet(context, product: product),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Retirer du stock',
+            onPressed: () => _confirmRemoveProduct(context, ref, product),
           ),
         ],
         bottom: async.isLoading
@@ -375,3 +383,164 @@ String? _quantityLabel(Product product) {
 /// Prix formaté en euros (l'API stocke un nombre).
 String _formatPrice(num price) =>
     NumberFormat.currency(locale: 'fr_FR', symbol: '€').format(price);
+
+/// Ouvre le sélecteur de motif de retrait (INV-8) puis, si le produit a bien
+/// été retiré, revient à la liste et confirme via une SnackBar.
+Future<void> _confirmRemoveProduct(
+  BuildContext context,
+  WidgetRef ref,
+  Product product,
+) async {
+  // Messenger racine (survit au pop de cette fiche), capturé avant navigation.
+  final messenger = ScaffoldMessenger.of(context);
+  final outcome = await showModalBottomSheet<String>(
+    context: context,
+    backgroundColor: AppColors.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => _RemoveProductSheet(product: product),
+  );
+  if (outcome == null) return; // annulé ou échec (message déjà affiché)
+  if (context.mounted) context.pop(); // retour à l'inventaire
+  messenger.showSnackBar(SnackBar(content: Text(outcome)));
+}
+
+/// Bottom sheet demandant le motif de retrait d'un produit (INV-8).
+///
+/// Chaque motif alimente les statistiques de gaspillage côté serveur ; « juste
+/// le retirer » n'envoie aucun motif. Retourne (via `pop`) le message de succès
+/// à afficher, ou `null` si l'utilisateur annule / en cas d'échec.
+class _RemoveProductSheet extends ConsumerStatefulWidget {
+  const _RemoveProductSheet({required this.product});
+
+  final Product product;
+
+  @override
+  ConsumerState<_RemoveProductSheet> createState() =>
+      _RemoveProductSheetState();
+}
+
+class _RemoveProductSheetState extends ConsumerState<_RemoveProductSheet> {
+  bool _busy = false;
+
+  Future<void> _remove(
+    ProductRemovalReason? reason,
+    String successMessage,
+  ) async {
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(inventoryRepositoryProvider)
+          .deleteProduct(widget.product.id, reason: reason);
+      ref.invalidate(inventoryProvider);
+      ref.invalidate(dashboardProvider);
+      if (!mounted) return;
+      Navigator.of(context).pop(successMessage);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      messenger.showSnackBar(
+        const SnackBar(
+          content:
+              Text('Échec du retrait. Vérifie ta connexion et réessaie.'),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = widget.product.name;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Retirer « $name »',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Pourquoi retires-tu ce produit ? Cela alimente tes statistiques '
+              'de gaspillage.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            _ReasonButton(
+              icon: Icons.restaurant_outlined,
+              label: 'Je l\'ai consommé',
+              color: AppColors.success,
+              enabled: !_busy,
+              onTap: () =>
+                  _remove(ProductRemovalReason.consumed, '« $name » consommé'),
+            ),
+            const SizedBox(height: 10),
+            _ReasonButton(
+              icon: Icons.delete_outline,
+              label: 'Jeté ou périmé',
+              color: AppColors.error,
+              enabled: !_busy,
+              onTap: () => _remove(
+                  ProductRemovalReason.thrown, '« $name » retiré (gaspillage)'),
+            ),
+            const SizedBox(height: 6),
+            TextButton(
+              onPressed:
+                  _busy ? null : () => _remove(null, '« $name » retiré du stock'),
+              child: const Text('Juste le retirer (sans compter)'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bouton d'un motif de retrait, teinté selon la sémantique du motif.
+class _ReasonButton extends StatelessWidget {
+  const _ReasonButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: enabled ? onTap : null,
+      icon: Icon(icon, size: 20),
+      label: Text(label),
+      style: FilledButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        alignment: Alignment.centerLeft,
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
