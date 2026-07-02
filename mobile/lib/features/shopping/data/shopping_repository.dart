@@ -58,6 +58,37 @@ class ShoppingRepository {
   Future<void> deleteItem(String listId, String itemId) async {
     await _dio.delete('/shopping-lists/$listId/items/$itemId');
   }
+
+  /// Ajoute des articles à la liste depuis des produits du stock (SHOP-6).
+  /// [quantities] associe un id produit à la quantité voulue. Le backend recopie
+  /// nom/unité/catégorie/code-barre/prix et ignore les produits déjà présents.
+  Future<InventoryAddResult> addItemsFromInventory(
+    String listId,
+    Map<String, num> quantities,
+  ) async {
+    final items = quantities.entries
+        .map((e) => {'product_id': e.key, 'quantity': e.value})
+        .toList();
+    final res = await _dio.post(
+      '/shopping-lists/$listId/items/from-inventory',
+      data: {'items': items},
+    );
+    return InventoryAddResult.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  /// Transfère les articles cochés de la liste vers le stock (SHOP-7) : crée les
+  /// produits dans [locationId] (ou l'emplacement par défaut si nul), puis les
+  /// retire de la liste.
+  Future<TransferResult> transferToStock(
+    String listId, {
+    String? locationId,
+  }) async {
+    final res = await _dio.post(
+      '/shopping-lists/$listId/transfer',
+      data: {'location_id': ?locationId},
+    );
+    return TransferResult.fromJson(res.data as Map<String, dynamic>);
+  }
 }
 
 final shoppingRepositoryProvider = Provider<ShoppingRepository>(

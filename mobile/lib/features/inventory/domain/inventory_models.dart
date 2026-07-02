@@ -137,6 +137,8 @@ class Product {
     this.categoryColorHex,
     this.price,
     this.notes,
+    this.imageUrl,
+    this.thumbnailUrl,
     this.createdAt,
   });
 
@@ -161,6 +163,11 @@ class Product {
   final String? categoryColorHex;
   final num? price;
   final String? notes;
+
+  /// Photo du produit : data-URL (`data:image/…;base64,…`) enregistrée depuis
+  /// l'app, ou URL distante (ex. Open Food Facts). `null` si aucune photo.
+  final String? imageUrl;
+  final String? thumbnailUrl;
   final DateTime? createdAt;
 
   /// Vrai si un seuil de stock bas est défini et que la quantité l'atteint —
@@ -198,6 +205,8 @@ class Product {
       categoryColorHex: isCat ? cat['color'] as String? : null,
       price: json['price'] as num?,
       notes: json['notes'] as String?,
+      imageUrl: json['image_url'] as String?,
+      thumbnailUrl: json['thumbnail_url'] as String?,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())
           : null,
@@ -219,6 +228,8 @@ class ProductInput {
     this.barcode,
     this.brand,
     this.notes,
+    this.imageUrl,
+    this.includeImage = false,
   });
 
   final String name;
@@ -231,6 +242,15 @@ class ProductInput {
   final String? brand;
   final String? notes;
 
+  /// Photo à enregistrer : data-URL compressée, URL distante, ou `null` pour
+  /// « pas de photo / retirer la photo ».
+  final String? imageUrl;
+
+  /// Vrai si la photo a été modifiée dans le formulaire — seul cas où l'on
+  /// sérialise `image_url` en édition (sinon on préserve la photo existante,
+  /// cf. [toUpdateJson]). En création, la photo est incluse dès qu'elle existe.
+  final bool includeImage;
+
   Map<String, dynamic> toJson() => {
         'name': name,
         'location_id': locationId,
@@ -241,15 +261,17 @@ class ProductInput {
         if (barcode != null && barcode!.isNotEmpty) 'barcode': barcode,
         if (brand != null && brand!.isNotEmpty) 'brand': brand,
         if (notes != null && notes!.isNotEmpty) 'notes': notes,
+        if (imageUrl != null && imageUrl!.isNotEmpty) 'image_url': imageUrl,
       };
 
   /// Sérialisation pour l'édition (`PUT /products/:id`, INV-7).
   ///
   /// Contrairement à [toJson] (création), on envoie explicitement `null` pour
-  /// les champs optionnels vidés afin de pouvoir les **effacer**. Les champs non
-  /// gérés par le formulaire mobile (`price`, `image_url`) sont volontairement
-  /// omis : Sequelize retire les clés `undefined` avant l'UPDATE, donc leur
-  /// valeur existante est préservée côté serveur.
+  /// les champs optionnels vidés afin de pouvoir les **effacer**. `price` (non
+  /// géré par le formulaire mobile) est volontairement omis : Sequelize retire
+  /// les clés `undefined` avant l'UPDATE, donc sa valeur existante est préservée.
+  /// `image_url` n'est envoyé que si la photo a été modifiée ([includeImage]),
+  /// afin de préserver une photo existante non touchée (INV-10).
   Map<String, dynamic> toUpdateJson() => {
         'name': name,
         'location_id': locationId,
@@ -260,6 +282,7 @@ class ProductInput {
         'barcode': (barcode != null && barcode!.isNotEmpty) ? barcode : null,
         'brand': (brand != null && brand!.isNotEmpty) ? brand : null,
         'notes': (notes != null && notes!.isNotEmpty) ? notes : null,
+        if (includeImage) 'image_url': imageUrl,
       };
 }
 
@@ -287,9 +310,12 @@ enum ProductRemovalReason {
 /// code-barre (Open Food Facts) ou d'une saisie manuelle. Tous les champs sont
 /// optionnels : un code-barre inconnu ne renseigne que [barcode].
 class ProductPrefill {
-  const ProductPrefill({this.name, this.brand, this.barcode});
+  const ProductPrefill({this.name, this.brand, this.barcode, this.imageUrl});
 
   final String? name;
   final String? brand;
   final String? barcode;
+
+  /// Photo distante éventuelle (URL Open Food Facts) à pré-remplir (INV-10/11).
+  final String? imageUrl;
 }

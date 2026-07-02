@@ -31,6 +31,12 @@ final productDetailProvider =
   return repo.getProduct(id);
 });
 
+/// Emplacements du foyer, seuls (sans les produits). Utilisé par le transfert de
+/// courses vers le stock (SHOP-7) pour choisir la destination.
+final locationsProvider = FutureProvider.autoDispose<List<Location>>((ref) async {
+  return ref.read(inventoryRepositoryProvider).getLocations();
+});
+
 /// Données nécessaires au formulaire d'ajout : emplacements + catégories.
 class AddProductFormData {
   const AddProductFormData({required this.locations, required this.categories});

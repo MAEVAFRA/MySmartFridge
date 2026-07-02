@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,13 +9,57 @@ import '../../../core/widgets/async_state_views.dart';
 import '../application/shopping_providers.dart';
 import '../data/shopping_repository.dart';
 import '../domain/shopping_models.dart';
+import 'add_from_inventory_sheet.dart';
+import 'transfer_to_stock_sheet.dart';
 
 /// Onglet Courses : listes du foyer, articles cochables en magasin.
-class ShoppingScreen extends ConsumerWidget {
+///
+/// `Stateful` pour piloter la synchronisation des cochages hors ligne (SHOP-8) :
+/// on rejoue la file à la reprise de l'app et périodiquement tant que l'écran
+/// est visible.
+class ShoppingScreen extends ConsumerStatefulWidget {
   const ShoppingScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ShoppingScreen> createState() => _ShoppingScreenState();
+}
+
+class _ShoppingScreenState extends ConsumerState<ShoppingScreen>
+    with WidgetsBindingObserver {
+  Timer? _syncTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Tente d'écouler la file au montage (ex. cochages hors ligne d'une session
+    // précédente) puis à intervalle régulier tant que l'écran vit.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _flush());
+    _syncTimer =
+        Timer.periodic(const Duration(seconds: 20), (_) => _flush());
+  }
+
+  @override
+  void dispose() {
+    _syncTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Au retour au premier plan, on retente la synchronisation (le réseau a pu
+    // revenir pendant que l'app était en arrière-plan).
+    if (state == AppLifecycleState.resumed) _flush();
+  }
+
+  void _flush() {
+    if (!mounted) return;
+    ref.read(shoppingActionsProvider).flushPending();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final lists = ref.watch(shoppingListsProvider);
 
     // Liste active pour le menu (renommer/supprimer) : seulement si on a des données.
@@ -101,13 +147,14 @@ class ShoppingScreen extends ConsumerWidget {
           return Column(
             children: [
               _ListSelector(lists: data, activeId: active.id),
+              const _PendingSyncBanner(),
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: () => _refresh(ref),
                   child: _ListContent(list: active),
                 ),
               ),
-              _AddItemBar(listId: active.id),
+              _BottomBar(list: active),
             ],
           );
         },
@@ -115,7 +162,9 @@ class ShoppingScreen extends ConsumerWidget {
     );
   }
 
+  /// Rejoue d'abord les cochages en attente, puis recharge les listes.
   Future<void> _refresh(WidgetRef ref) async {
+    await ref.read(shoppingActionsProvider).flushPending();
     ref.invalidate(shoppingListsProvider);
     await ref.read(shoppingListsProvider.future);
   }
@@ -180,6 +229,46 @@ class _ListSelector extends ConsumerWidget {
   }
 }
 
+/// Bandeau de synchronisation (SHOP-8) : visible tant que des cochages faits hors
+/// ligne restent à confirmer. Bouton « Synchroniser » pour forcer un rejeu.
+class _PendingSyncBanner extends ConsumerWidget {
+  const _PendingSyncBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pendingCount = ref.watch(pendingChecksProvider).length;
+    if (pendingCount == 0) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFFFEF3C7), // amber-100
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off_outlined,
+              size: 18, color: Color(0xFFB45309)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '$pendingCount modification${pendingCount > 1 ? 's' : ''} '
+              'en attente de synchronisation',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFB45309), // amber-700
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => ref.read(shoppingActionsProvider).flushPending(),
+            child: const Text('Synchroniser'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Contenu d'une liste : compteur de progression + articles à acheter / cochés.
 class _ListContent extends ConsumerWidget {
   const _ListContent({required this.list});
@@ -192,19 +281,20 @@ class _ListContent extends ConsumerWidget {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+          SizedBox(height: MediaQuery.of(context).size.height * 0.12),
           const EmptyView(
             icon: Icons.add_shopping_cart,
             title: 'Liste vide',
-            message: 'Ajoute des articles à acheter.',
+            message: 'Ajoute des articles à acheter, ou importe ton stock.',
           ),
         ],
       );
     }
 
-    // État coché effectif = surcharge optimiste si présente, sinon serveur.
-    final overrides = ref.watch(checkOverridesProvider);
-    bool isChecked(ShoppingItem i) => overrides[i.id] ?? i.checked;
+    // État coché effectif = surcharge optimiste/hors-ligne si présente, sinon
+    // valeur serveur.
+    final pending = ref.watch(pendingChecksProvider);
+    bool isChecked(ShoppingItem i) => pending[i.id]?.checked ?? i.checked;
 
     final toBuy = list.items.where((i) => !isChecked(i)).toList();
     final inCart = list.items.where(isChecked).toList();
@@ -373,16 +463,7 @@ class _ItemRow extends ConsumerWidget {
           ref
               .read(shoppingActionsProvider)
               .toggleChecked(listId, item, checked)
-              .then((ok) {
-            if (!ok) {
-              messenger.showSnackBar(
-                const SnackBar(
-                  content: Text('Échec de la synchronisation'),
-                  backgroundColor: AppColors.error,
-                ),
-              );
-            }
-          });
+              .then((result) => _handleToggleResult(messenger, result));
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -394,15 +475,29 @@ class _ItemRow extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  item.name,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: checked
-                        ? AppColors.textSecondary
-                        : AppColors.textPrimary,
-                    decoration: checked ? TextDecoration.lineThrough : null,
-                  ),
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        item.name,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: checked
+                              ? AppColors.textSecondary
+                              : AppColors.textPrimary,
+                          decoration:
+                              checked ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
+                    ),
+                    if (item.productId != null) ...[
+                      const SizedBox(width: 6),
+                      Icon(Icons.inventory_2_outlined,
+                          size: 14,
+                          color: AppColors.neutral400,
+                          semanticLabel: 'Depuis le stock'),
+                    ],
+                  ],
                 ),
               ),
               if (qty != null)
@@ -417,13 +512,108 @@ class _ItemRow extends ConsumerWidget {
       ),
     );
   }
+
+  /// Retour utilisateur après un cochage : silencieux si synchronisé, information
+  /// discrète si mis en file hors ligne, erreur si échec serveur réel.
+  void _handleToggleResult(
+      ScaffoldMessengerState messenger, ToggleResult result) {
+    switch (result) {
+      case ToggleResult.synced:
+        break;
+      case ToggleResult.queuedOffline:
+        messenger
+          ..removeCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Hors ligne — modification enregistrée, '
+                  'synchronisation automatique.'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+      case ToggleResult.failed:
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Échec de la synchronisation'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+    }
+  }
 }
 
-/// Barre de saisie d'un nouvel article, ancrée en bas de l'écran.
-class _AddItemBar extends ConsumerStatefulWidget {
-  const _AddItemBar({required this.listId});
+/// Bas d'écran : barre de transfert contextuelle (SHOP-7) + barre d'ajout.
+class _BottomBar extends ConsumerWidget {
+  const _BottomBar({required this.list});
+
+  final ShoppingList list;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pending = ref.watch(pendingChecksProvider);
+    bool isChecked(ShoppingItem i) => pending[i.id]?.checked ?? i.checked;
+    final checkedCount = list.items.where(isChecked).length;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (checkedCount > 0)
+          _TransferBar(listId: list.id, count: checkedCount),
+        _AddItemBar(list: list),
+      ],
+    );
+  }
+}
+
+/// Barre verte « Transférer N en stock », visible dès qu'un article est coché.
+class _TransferBar extends StatelessWidget {
+  const _TransferBar({required this.listId, required this.count});
 
   final String listId;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      child: InkWell(
+        onTap: () => showTransferToStockSheet(
+          context,
+          listId: listId,
+          checkedCount: count,
+        ),
+        child: Container(
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: AppColors.border)),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          child: Row(
+            children: [
+              const Icon(Icons.move_to_inbox_outlined,
+                  size: 20, color: AppColors.success),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Transférer $count article${count > 1 ? 's' : ''} en stock',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.success,
+                  ),
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.success),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Barre de saisie d'un nouvel article + import depuis le stock, ancrée en bas.
+class _AddItemBar extends ConsumerStatefulWidget {
+  const _AddItemBar({required this.list});
+
+  final ShoppingList list;
 
   @override
   ConsumerState<_AddItemBar> createState() => _AddItemBarState();
@@ -433,6 +623,8 @@ class _AddItemBarState extends ConsumerState<_AddItemBar> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
   bool _submitting = false;
+
+  String get _listId => widget.list.id;
 
   @override
   void dispose() {
@@ -448,7 +640,7 @@ class _AddItemBarState extends ConsumerState<_AddItemBar> {
     try {
       await ref
           .read(shoppingRepositoryProvider)
-          .addItem(widget.listId, name: name);
+          .addItem(_listId, name: name);
       _controller.clear();
       ref.invalidate(shoppingListsProvider);
       // Garde le focus pour enchaîner les saisies en magasin.
@@ -460,6 +652,19 @@ class _AddItemBarState extends ConsumerState<_AddItemBar> {
     }
   }
 
+  void _openFromInventory() {
+    final existing = widget.list.items
+        .where((i) => i.productId != null)
+        .map((i) => i.productId!)
+        .toSet();
+    showAddFromInventorySheet(
+      context,
+      listId: _listId,
+      existingProductIds: existing,
+      listName: widget.list.name,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -468,7 +673,7 @@ class _AddItemBarState extends ConsumerState<_AddItemBar> {
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
       padding: EdgeInsets.fromLTRB(
-        12,
+        8,
         8,
         12,
         8 + MediaQuery.of(context).viewInsets.bottom,
@@ -477,6 +682,12 @@ class _AddItemBarState extends ConsumerState<_AddItemBar> {
         top: false,
         child: Row(
           children: [
+            IconButton(
+              tooltip: 'Ajouter depuis le stock',
+              onPressed: _openFromInventory,
+              icon: const Icon(Icons.inventory_2_outlined),
+              color: AppColors.primaryDark,
+            ),
             Expanded(
               child: TextField(
                 controller: _controller,

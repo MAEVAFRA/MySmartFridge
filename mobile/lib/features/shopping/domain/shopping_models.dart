@@ -44,6 +44,58 @@ class ShoppingItem {
   }
 }
 
+/// Cochage effectué localement mais pas encore confirmé par le serveur (SHOP-8).
+/// Persisté pour survivre à un redémarrage hors ligne, puis rejoué au retour du
+/// réseau. La clé de la file est l'`id` de l'article ; on conserve ici le
+/// `listId` (nécessaire à la requête de synchronisation) et l'état voulu.
+class PendingCheck {
+  const PendingCheck({required this.listId, required this.checked});
+
+  final String listId;
+  final bool checked;
+
+  Map<String, dynamic> toJson() => {'list_id': listId, 'checked': checked};
+
+  factory PendingCheck.fromJson(Map<String, dynamic> json) {
+    return PendingCheck(
+      listId: json['list_id'].toString(),
+      checked: json['checked'] == true,
+    );
+  }
+}
+
+/// Résultat d'un ajout d'articles depuis l'inventaire (SHOP-6) : combien ont été
+/// ajoutés et combien ont été ignorés (déjà présents dans la liste).
+class InventoryAddResult {
+  const InventoryAddResult({required this.added, required this.skipped});
+
+  final int added;
+  final int skipped;
+
+  factory InventoryAddResult.fromJson(Map<String, dynamic> json) {
+    return InventoryAddResult(
+      added: (json['added'] as num?)?.toInt() ?? 0,
+      skipped: (json['skipped'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+/// Résultat d'un transfert des articles cochés vers le stock (SHOP-7) : combien
+/// de produits ont été créés et dans quel emplacement.
+class TransferResult {
+  const TransferResult({required this.transferred, this.location});
+
+  final int transferred;
+  final String? location;
+
+  factory TransferResult.fromJson(Map<String, dynamic> json) {
+    return TransferResult(
+      transferred: (json['transferred'] as num?)?.toInt() ?? 0,
+      location: json['location'] as String?,
+    );
+  }
+}
+
 /// Une liste de courses et ses articles.
 class ShoppingList {
   const ShoppingList({

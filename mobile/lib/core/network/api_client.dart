@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -147,4 +149,24 @@ bool isSessionExpiredError(DioException error) {
     '/auth/reset-password',
   ];
   return !publicAuthPaths.any(path.startsWith);
+}
+
+/// Indique si une erreur Dio traduit un problème de **connectivité** (appareil
+/// hors ligne, backend injoignable, délai dépassé) plutôt qu'une réponse du
+/// serveur. Sert au mode hors-ligne des courses (SHOP-8) : un cochage qui échoue
+/// pour cette raison est mis en file d'attente au lieu d'être annulé.
+bool isNetworkError(DioException error) {
+  switch (error.type) {
+    case DioExceptionType.connectionError:
+    case DioExceptionType.connectionTimeout:
+    case DioExceptionType.sendTimeout:
+    case DioExceptionType.receiveTimeout:
+      return true;
+    case DioExceptionType.unknown:
+      // Sur mobile, une coupure réseau remonte souvent en `unknown` enveloppant
+      // une `SocketException` : aucune réponse HTTP n'a pu être obtenue.
+      return error.error is SocketException;
+    default:
+      return false;
+  }
 }
