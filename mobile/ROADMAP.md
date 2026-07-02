@@ -108,6 +108,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 | INV-15 | Détail catégorie | ✅ | P-Basse | S | `GET /categories/:id` | INV-14 |
 | INV-16 | Pagination / lazy-load liste produits | ✅ | P-Basse | M | `GET /products` | INV-2 |
 | INV-17 | Debounce sur la recherche inventaire (éviter recalcul + reset pagination à chaque frappe) | ⬜ | P-Basse | S | — | INV-3 |
+| INV-18 | Filtre par **catégorie** + tri par **quantité** (alignement CDC F-17/F-18, manquants aussi côté web pour le filtre catégorie) | ⬜ | P-Basse | S | `GET /products` | INV-3 |
 
 *Points d'attention.* **Épic livrée (INV-0→16, audit 2026-07-02).** Restes qualité : INV-16 est une pagination **côté client** (tout est chargé en RAM ; une pagination serveur exigerait d'abord des params API), la recherche n'a pas de debounce (INV-17), et les erreurs d'écriture affichent des messages génériques (voir UI-2). Les formulaires emplacement/catégorie partagent `form_choices.dart` mais dupliquent validation/soumission (candidat factorisation, non bloquant).
 
@@ -354,3 +355,4 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 - **Convention équipe.** 1 commit propre par ticket livré de bout en bout et vérifié ; dialogs/bottom sheets Flutter natifs (jamais de dialogues navigateur).
 - **Réutilisation.** Extraire les helpers d'urgence/couleur/péremption de `home_screen.dart` vers une couche partagée avant toute duplication dans Inventaire/Péremptions.
 - **Écart API ↔ mobile.** Le backend couvre déjà l'ensemble des epics ci-dessus (sauf push notifications) ; le travail mobile est essentiellement du câblage UI + état + plomberie plateforme, pas du backend.
+- **Conformité au cahier des charges.** Comparaison exigence par exigence (F-01→F-56) entre CDC, web et mobile : voir `Documentation/Conformite-CDC-Web-Mobile.md` (2026-07-02). Synthèse : tous les Must Have couverts par le web ; seul écart notable = notifications push (F-26/27, backend absent) ; l'app mobile est un dépassement du CDC (classée Won't Have).
