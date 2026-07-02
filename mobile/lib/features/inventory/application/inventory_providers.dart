@@ -299,24 +299,70 @@ int _compareProducts(Product a, Product b, InventorySort sort) {
   }
 }
 
-/// Résultat de l'application des filtres : groupes affichables + nombre total de
-/// produits correspondants (avant regroupement).
+/// Résultat de l'application des filtres : groupes affichables + comptages.
 class InventoryView {
-  const InventoryView({required this.groups, required this.matchCount});
+  const InventoryView({
+    required this.groups,
+    required this.matchCount,
+    this.visibleCount = 0,
+    this.hasMore = false,
+  });
 
   final List<InventoryGroup> groups;
+
+  /// Nombre total de produits correspondant aux filtres (avant limite/regroupement).
   final int matchCount;
+
+  /// Nombre de produits réellement affichés (après application de la limite).
+  final int visibleCount;
+
+  /// Reste-t-il des produits à charger (lazy-load, INV-16) ?
+  final bool hasMore;
 }
 
 /// Filtre puis trie les produits, et les regroupe par emplacement pour
 /// l'affichage. Le tri s'applique à l'intérieur de chaque groupe ; l'ordre des
 /// groupes reste celui des emplacements.
-InventoryView buildInventoryView(InventoryData data, InventoryFilters filters) {
+///
+/// [limit] plafonne le nombre de produits affichés (lazy-load, INV-16) : on
+/// regroupe alors seulement les [limit] premiers de la liste filtrée+triée.
+/// `null` = pas de limite (tout est affiché).
+InventoryView buildInventoryView(
+  InventoryData data,
+  InventoryFilters filters, {
+  int? limit,
+}) {
   final filtered =
       data.products.where((p) => _matchesFilters(p, filters)).toList()
         ..sort((a, b) => _compareProducts(a, b, filters.sort));
+  final total = filtered.length;
+  final visible = (limit != null && limit < total)
+      ? filtered.sublist(0, limit)
+      : filtered;
   return InventoryView(
-    groups: groupProductsByLocation(filtered, data.locations),
-    matchCount: filtered.length,
+    groups: groupProductsByLocation(visible, data.locations),
+    matchCount: total,
+    visibleCount: visible.length,
+    hasMore: limit != null && total > limit,
   );
 }
+
+/// Taille d'une « page » de la liste inventaire (lazy-load, INV-16).
+const inventoryPageSize = 20;
+
+/// Nombre de produits actuellement affichés dans la liste inventaire. Augmente
+/// par pas de [inventoryPageSize] au défilement ; remis à zéro quand les filtres
+/// changent (piloté par l'écran).
+class InventoryVisibleCount extends Notifier<int> {
+  @override
+  int build() => inventoryPageSize;
+
+  void more() => state = state + inventoryPageSize;
+
+  void reset() {
+    if (state != inventoryPageSize) state = inventoryPageSize;
+  }
+}
+
+final inventoryVisibleCountProvider =
+    NotifierProvider<InventoryVisibleCount, int>(InventoryVisibleCount.new);

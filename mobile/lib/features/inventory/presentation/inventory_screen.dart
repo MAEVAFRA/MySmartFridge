@@ -22,6 +22,12 @@ class InventoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final inventory = ref.watch(inventoryProvider);
 
+    // Réinitialise la pagination (INV-16) dès qu'un filtre change : on repart
+    // de la première page de résultats.
+    ref.listen<InventoryFilters>(inventoryFiltersProvider, (_, _) {
+      ref.read(inventoryVisibleCountProvider.notifier).reset();
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Inventaire',
@@ -83,7 +89,8 @@ class InventoryScreen extends ConsumerWidget {
           }
 
           final filters = ref.watch(inventoryFiltersProvider);
-          final view = buildInventoryView(data, filters);
+          final visibleCount = ref.watch(inventoryVisibleCountProvider);
+          final view = buildInventoryView(data, filters, limit: visibleCount);
           return Column(
             children: [
               _InventoryControls(locations: data.locations),
@@ -96,12 +103,39 @@ class InventoryScreen extends ConsumerWidget {
                               .read(inventoryFiltersProvider.notifier)
                               .clear(),
                         )
-                      : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(16),
-                          itemCount: view.groups.length,
-                          itemBuilder: (_, i) =>
-                              _LocationGroupCard(group: view.groups[i]),
+                      : NotificationListener<ScrollNotification>(
+                          // Lazy-load : on charge la page suivante quand on
+                          // approche du bas de la liste (INV-16).
+                          onNotification: (notif) {
+                            if (view.hasMore &&
+                                notif is ScrollUpdateNotification &&
+                                notif.metrics.pixels >=
+                                    notif.metrics.maxScrollExtent - 400) {
+                              ref
+                                  .read(inventoryVisibleCountProvider.notifier)
+                                  .more();
+                            }
+                            return false;
+                          },
+                          child: ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.all(16),
+                            itemCount:
+                                view.groups.length + (view.hasMore ? 1 : 0),
+                            itemBuilder: (_, i) {
+                              if (i >= view.groups.length) {
+                                return _LoadMoreFooter(
+                                  visible: view.visibleCount,
+                                  total: view.matchCount,
+                                  onLoadMore: () => ref
+                                      .read(inventoryVisibleCountProvider
+                                          .notifier)
+                                      .more(),
+                                );
+                              }
+                              return _LocationGroupCard(group: view.groups[i]);
+                            },
+                          ),
                         ),
                 ),
               ),
@@ -406,6 +440,42 @@ class _NoResultsView extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Pied de liste de pagination (INV-16) : compteur « affichés / total » et
+/// bouton pour charger la page suivante (le défilement le fait aussi).
+class _LoadMoreFooter extends StatelessWidget {
+  const _LoadMoreFooter({
+    required this.visible,
+    required this.total,
+    required this.onLoadMore,
+  });
+
+  final int visible;
+  final int total;
+  final VoidCallback onLoadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        children: [
+          Text(
+            '$visible sur $total produits',
+            style: const TextStyle(
+                fontSize: 12.5, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: onLoadMore,
+            icon: const Icon(Icons.expand_more, size: 18),
+            label: const Text('Charger plus'),
+          ),
+        ],
+      ),
     );
   }
 }

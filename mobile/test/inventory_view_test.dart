@@ -104,4 +104,39 @@ void main() {
     expect(view.matchCount, 0);
     expect(view.groups, isEmpty);
   });
+
+  group('pagination / lazy-load (INV-16)', () {
+    test('la limite plafonne le nombre de produits affichés', () {
+      final view =
+          buildInventoryView(data, const InventoryFilters(), limit: 2);
+      expect(view.matchCount, 4); // total inchangé
+      expect(view.visibleCount, 2);
+      expect(view.hasMore, isTrue);
+      expect(flatten(view).length, 2);
+    });
+
+    test('limite ≥ total : tout est affiché, hasMore faux', () {
+      final view =
+          buildInventoryView(data, const InventoryFilters(), limit: 10);
+      expect(view.visibleCount, 4);
+      expect(view.hasMore, isFalse);
+      expect(flatten(view).length, 4);
+    });
+
+    test('sans limite : tout est affiché', () {
+      final view = buildInventoryView(data, const InventoryFilters());
+      expect(view.hasMore, isFalse);
+      expect(flatten(view).length, 4);
+    });
+
+    test('la limite retient les plus urgents d\'abord', () {
+      final view = buildInventoryView(
+        data,
+        const InventoryFilters(sort: InventorySort.expiry),
+        limit: 2,
+      );
+      // yaourt (périmé) et lait (J+2) sont les deux plus urgents.
+      expect(flatten(view).map((p) => p.id), containsAll(['p1', 'p2']));
+    });
+  });
 }
