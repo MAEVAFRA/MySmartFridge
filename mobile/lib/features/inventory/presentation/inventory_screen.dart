@@ -10,6 +10,7 @@ import '../application/inventory_providers.dart';
 import '../domain/inventory_models.dart';
 import 'add_product_sheet.dart';
 import 'location_style.dart';
+import 'product_image.dart';
 
 /// Onglet Inventaire : la liste des produits en stock, regroupés par
 /// emplacement, avec badge de péremption, recherche, filtres (emplacement /
@@ -498,7 +499,15 @@ class _ProductRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-          if (product.categoryIcon != null) ...[
+          if (product.imageUrl != null && product.imageUrl!.isNotEmpty) ...[
+            ProductThumb(
+              imageUrl: product.imageUrl,
+              emoji: product.categoryIcon,
+              size: 38,
+              radius: 9,
+            ),
+            const SizedBox(width: 10),
+          ] else if (product.categoryIcon != null) ...[
             Text(product.categoryIcon!, style: const TextStyle(fontSize: 18)),
             const SizedBox(width: 10),
           ],

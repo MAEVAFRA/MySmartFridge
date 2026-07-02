@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -9,6 +10,7 @@ import '../../home/dashboard_provider.dart';
 import '../application/inventory_providers.dart';
 import '../data/inventory_repository.dart';
 import '../domain/inventory_models.dart';
+import 'product_image.dart';
 
 /// Unités proposées dans le formulaire (l'API stocke une simple chaîne).
 const _units = ['pièce', 'g', 'kg', 'mL', 'L', 'paquet', 'boîte', 'tranche'];
@@ -80,6 +82,10 @@ class _ProductSheetState extends ConsumerState<_ProductSheet> {
   String? _categoryId;
   late String _unit;
   DateTime? _expiresAt;
+  String? _imageUrl;
+  // Vrai dès que l'utilisateur ajoute/retire une photo : en édition, on ne
+  // sérialise `image_url` que dans ce cas (sinon on préserve la photo existante).
+  bool _imageChanged = false;
   bool _submitting = false;
 
   bool get _isEditing => widget.editing != null;
@@ -91,6 +97,7 @@ class _ProductSheetState extends ConsumerState<_ProductSheet> {
     _locationId = editing?.locationId;
     _categoryId = editing?.categoryId;
     _expiresAt = editing?.expiresAt;
+    _imageUrl = editing?.imageUrl ?? widget.prefill?.imageUrl;
     final unit = editing?.unit;
     _unit = (unit != null && unit.isNotEmpty) ? unit : 'pièce';
   }
@@ -144,6 +151,57 @@ class _ProductSheetState extends ConsumerState<_ProductSheet> {
         category, _locationTypeById(data.locations, _locationId));
   }
 
+  /// Propose caméra/galerie puis récupère une photo compressée (INV-10).
+  Future<void> _pickImage() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Prendre une photo'),
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choisir dans la galerie'),
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final dataUrl = await pickProductImageDataUrl(source);
+      if (dataUrl == null || !mounted) return;
+      setState(() {
+        _imageUrl = dataUrl;
+        _imageChanged = true;
+      });
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Impossible d\'accéder à la photo. Vérifie les autorisations.'),
+        ),
+      );
+    }
+  }
+
+  void _removeImage() => setState(() {
+        _imageUrl = null;
+        _imageChanged = true;
+      });
+
   Future<void> _submit() async {
     final locationId = _locationId;
     if (!_formKey.currentState!.validate() || locationId == null) return;
@@ -166,6 +224,8 @@ class _ProductSheetState extends ConsumerState<_ProductSheet> {
       barcode: barcode.isEmpty ? null : barcode,
       brand: brand.isEmpty ? null : brand,
       notes: notes.isEmpty ? null : notes,
+      imageUrl: _imageUrl,
+      includeImage: _imageChanged,
     );
 
     // Le messenger est capturé avant le pop : après fermeture de la sheet, son
@@ -269,6 +329,14 @@ class _ProductSheetState extends ConsumerState<_ProductSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Center(
+                    child: _PhotoField(
+                      imageUrl: _imageUrl,
+                      onPick: _pickImage,
+                      onRemove: _removeImage,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
                   TextFormField(
                     controller: _nameController,
                     textCapitalization: TextCapitalization.sentences,
@@ -498,6 +566,74 @@ class _DateField extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Sélecteur de photo du produit (INV-10) : vignette tactile (photo ou
+/// invite « Photo »), avec actions « Changer » / « Retirer » une fois une photo
+/// choisie.
+class _PhotoField extends StatelessWidget {
+  const _PhotoField({
+    required this.imageUrl,
+    required this.onPick,
+    required this.onRemove,
+  });
+
+  final String? imageUrl;
+  final VoidCallback onPick;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: onPick,
+          borderRadius: BorderRadius.circular(16),
+          child: hasImage
+              ? ProductThumb(imageUrl: imageUrl, size: 104, radius: 16)
+              : Container(
+                  width: 104,
+                  height: 104,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_a_photo_outlined,
+                          color: AppColors.primary),
+                      SizedBox(height: 6),
+                      Text('Photo',
+                          style: TextStyle(
+                              fontSize: 12, color: AppColors.primary)),
+                    ],
+                  ),
+                ),
+        ),
+        if (hasImage)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextButton.icon(
+                onPressed: onPick,
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: const Text('Changer'),
+              ),
+              TextButton.icon(
+                onPressed: onRemove,
+                icon: const Icon(Icons.close, size: 16),
+                label: const Text('Retirer'),
+                style: TextButton.styleFrom(foregroundColor: AppColors.error),
+              ),
+            ],
+          ),
+      ],
     );
   }
 }

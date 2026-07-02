@@ -12,6 +12,7 @@ import '../data/inventory_repository.dart';
 import '../domain/inventory_models.dart';
 import 'add_product_sheet.dart';
 import 'location_style.dart';
+import 'product_image.dart';
 
 /// Fiche détaillée d'un produit (INV-5).
 ///
@@ -166,18 +167,11 @@ class _Header extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: AppColors.primaryLight,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          alignment: Alignment.center,
-          child: product.categoryIcon != null
-              ? Text(product.categoryIcon!, style: const TextStyle(fontSize: 28))
-              : const Icon(Icons.inventory_2_outlined,
-                  color: AppColors.primary),
+        ProductThumb(
+          imageUrl: product.imageUrl,
+          emoji: product.categoryIcon,
+          size: 56,
+          radius: 14,
         ),
         const SizedBox(width: 14),
         Expanded(

@@ -110,11 +110,44 @@ void main() {
       expect(json['notes'], isNull);
     });
 
-    test('omet price et image_url (préservés par le backend)', () {
-      final json = const ProductInput(name: 'X', locationId: '1')
+    test('omet price ; image_url seulement si la photo a changé (INV-10)', () {
+      // Photo non modifiée : image_url omis → le backend préserve l'existante.
+      final untouched = const ProductInput(name: 'X', locationId: '1')
           .toUpdateJson();
-      expect(json.containsKey('price'), isFalse);
-      expect(json.containsKey('image_url'), isFalse);
+      expect(untouched.containsKey('price'), isFalse);
+      expect(untouched.containsKey('image_url'), isFalse);
+
+      // Photo retirée : image_url présent à null → efface côté serveur.
+      final cleared = const ProductInput(
+        name: 'X',
+        locationId: '1',
+        imageUrl: null,
+        includeImage: true,
+      ).toUpdateJson();
+      expect(cleared.containsKey('image_url'), isTrue);
+      expect(cleared['image_url'], isNull);
+
+      // Nouvelle photo : image_url présent avec la data-URL.
+      final set = const ProductInput(
+        name: 'X',
+        locationId: '1',
+        imageUrl: 'data:image/jpeg;base64,AAAA',
+        includeImage: true,
+      ).toUpdateJson();
+      expect(set['image_url'], 'data:image/jpeg;base64,AAAA');
+    });
+
+    test('toJson (création) inclut image_url si une photo est fournie', () {
+      final json = const ProductInput(
+        name: 'X',
+        locationId: '1',
+        imageUrl: 'data:image/jpeg;base64,AAAA',
+      ).toJson();
+      expect(json['image_url'], 'data:image/jpeg;base64,AAAA');
+      // Sans photo : clé absente.
+      final empty =
+          const ProductInput(name: 'X', locationId: '1').toJson();
+      expect(empty.containsKey('image_url'), isFalse);
     });
 
     test('sérialise les champs renseignés', () {
