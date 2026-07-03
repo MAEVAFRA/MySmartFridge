@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/expiry.dart';
 import '../../core/widgets/async_state_views.dart';
 import '../auth/application/auth_controller.dart';
+import '../auth/presentation/logout_action.dart';
 import '../inventory/application/inventory_providers.dart';
 import '../inventory/domain/inventory_models.dart';
 import '../inventory/presentation/location_style.dart';
@@ -47,7 +48,8 @@ class HomeScreen extends ConsumerWidget {
           IconButton(
             tooltip: 'Déconnexion',
             icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+            // HOME-4 : confirmation avant de déconnecter (dialog natif partagé).
+            onPressed: () => confirmAndLogout(context, ref),
           ),
         ],
       ),

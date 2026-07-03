@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../auth/presentation/logout_action.dart';
 
-class MoreScreen extends StatelessWidget {
+class MoreScreen extends ConsumerWidget {
   const MoreScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Plus', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -66,6 +68,16 @@ class MoreScreen extends StatelessWidget {
             onTap: () => context.push('/server-settings'),
           ),
           const Divider(height: 1),
+          // MORE-2 : déconnexion (avec confirmation) au bout des actions réelles.
+          ListTile(
+            leading: const Icon(Icons.logout, color: AppColors.error),
+            title: const Text(
+              'Se déconnecter',
+              style: TextStyle(
+                  color: AppColors.error, fontWeight: FontWeight.w600),
+            ),
+            onTap: () => confirmAndLogout(context, ref),
+          ),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
             child: Text(
