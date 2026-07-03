@@ -18,7 +18,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 
 ### Socle technique — solide
 - ✅ Bootstrap app (`ProviderScope` + `MaterialApp.router`), thème Material3 **clair + sombre** (`themeMode` persisté, réglable dans Paramètres — DS-2 livré), palette `AppColors`.
-- ✅ **URL d'API configurable dans l'app** : écran « Serveur/API » (testée, persistée via `SettingsStorage`, modifiable en runtime), accessible **même déconnecté** — en plus du `--dart-define API_BASE_URL`. Exception ATS iOS pour HTTP clair. Reste (ENV-1) : `network_security_config.xml` Android par précaution + doc réseau device physique + répétition sur device.
+- ✅ **URL d'API configurable dans l'app** : écran « Serveur/API » (testée, persistée via `SettingsStorage`, modifiable en runtime), accessible **même déconnecté** — en plus du `--dart-define API_BASE_URL`. Exception ATS iOS **+ `network_security_config.xml` Android (cleartext)** pour HTTP clair. Reste (ENV-1) : doc réseau device physique + répétition sur device.
 - ✅ Client Dio (timeouts 15 s connect/receive) + JWT injecté, **intercepteur 401 global** (logout auto, endpoints d'auth publics exclus), helper `isNetworkError` (connectivité vs réponse serveur), `LogInterceptor` en debug.
 - ✅ Restauration de session avec **mode dégradé hors ligne** (AUTH-7) ; stockage sécurisé du token.
 - ✅ go_router piloté par l'auth ; coquille 4 onglets + FAB **Scanner réel** (route plein écran) ; routes plein écran : profil (+édition), mot de passe, réglages app, réglages serveur, emplacements (+détail), catégories (+détail), péremptions — chacune avec fiche produit enfant.
@@ -27,21 +27,21 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 
 ### Fonctionnel — 5 onglets sur 5 réels, 4 épics complètes
 - ✅ **Auth** (AUTH-1→7) : login, register, forgot-password, restauration + mode dégradé, logout, 401 global. Complet.
-- ✅ **Accueil/Dashboard** : salutation, « À consommer vite » + « Mon stock », pull-to-refresh, tuiles/lignes cliquables (HOME-3). Restent : logout sans confirmation (HOME-4), pas d'actions rapides (HOME-5), pas de lien « voir tout » vers Péremptions (HOME-6), hex en dur (HOME-7), toujours 3 round-trips au lieu de `GET /stats` (HOME-8).
+- ✅ **Accueil/Dashboard** : salutation, **actions rapides Ajouter/Scanner (HOME-5)**, « À consommer vite » (avec **lien « Voir tout » → Péremptions, HOME-6**) + « Mon stock », pull-to-refresh, tuiles/lignes cliquables (HOME-3), **logout confirmé (HOME-4)**. Restent : hex en dur (HOME-7), toujours 3 round-trips au lieu de `GET /stats` (HOME-8).
 - ✅ **Inventaire — épic complète (INV-0→16)** : liste groupée par emplacement, recherche/filtres/tri, détail, **ajout/édition**, **suppression avec motif** (consommé/jeté/retiré), **photo compressée** (caméra/galerie, 1000px/70 %), **estimation auto de péremption**, **lookup code-barre depuis le formulaire**, **CRUD emplacements + détail**, **CRUD catégories + profils de conservation + détail**, **pagination lazy-load** (côté client, pages de 20).
 - ✅ **Courses — épic complète (SHOP-1→8)** : CRUD listes, articles, cochage optimiste + haptique, ajout depuis l'inventaire (multi-select, stock bas), transfert des cochés vers le stock, file offline persistée + rejeu (timer 20 s + resume) + bandeau « en attente ».
 - ✅ **Scanner — SCAN-0→6 livrés** : caméra `mobile_scanner` (EAN-13/8, UPC-A/E), torche, overlay de visée, lookup `GET /products/barcode/:code` + haptique, **saisie manuelle en fallback** (dialog, 6-14 chiffres), refus de permission géré (message + « Ouvrir les réglages »), libération caméra en arrière-plan (lifecycle observer), **pré-remplissage du formulaire d'ajout** (SCAN-4). Restent : OCR ticket (SCAN-7/8/9).
 - ✅ **Péremptions (EXP-1/2)** : fenêtre 3/7/14/30 j, sections périmés/à venir, code couleur + libellés relatifs partagés, fiches produit cliquables, état « tout va bien ».
-- ✅ **Plus (MORE-1)** : menu réel → Profil, Péremptions, Emplacements, Catégories, Paramètres, Serveur/API ; Recettes / Dépenses / Statistiques / Foyer affichés « Bientôt » (désactivés proprement). Pas de bouton Déconnexion dans ce menu (MORE-2).
+- ✅ **Plus (MORE-1 + MORE-2)** : menu réel → Profil, Péremptions, Emplacements, Catégories, Paramètres, Serveur/API, **Se déconnecter (MORE-2, confirmé)** ; Recettes / Dépenses / Statistiques / Foyer affichés « Bientôt » (désactivés proprement).
 - ✅ **Profil (PROF-1→4) + Paramètres (MORE-3)** : affichage (nom, email, régimes, allergies), édition complète, avatar caméra/galerie compressé (400px/80 %), changement de mot de passe, thème clair/sombre/système + « À propos » (version via `package_info_plus`).
 - ⬜ **Recettes, Dépenses & budget, Foyer, Statistiques, Notifications** : non commencés (épics G/H/I/J/L) — backend prêt, entrées « Bientôt » dans le menu Plus.
 
-### Dettes / manques restants (vérifiés dans le code au 2026-07-02)
-- ⚠️ **Logout brut** : bouton AppBar du dashboard qui déconnecte **sans confirmation** (HOME-4) et absent du menu « Plus » (MORE-2). Petit, visible en démo.
+### Dettes / manques restants (vérifiés dans le code au 2026-07-02, delta 2026-07-03)
+- ✅ **Logout confirmé (résolu 2026-07-03)** : dialog natif partagé `confirmAndLogout` — confirmation depuis le dashboard (HOME-4) et entrée « Se déconnecter » dans « Plus » (MORE-2).
 - ⚠️ **Erreurs réseau peu différenciées hors réglages serveur** (UI-2 partiel) : la plupart des écrans affichent un message générique (« Vérifie ta connexion… ») quel que soit le cas (timeout/4xx/5xx/parse). Aucune stacktrace ne fuit (UI-1 ok), mais l'utilisateur ne sait pas si c'est lui ou le serveur.
 - ⚠️ **SHOP-8 — rollback silencieux** : si le serveur rejette un cochage (ex : article supprimé ailleurs), la surcharge optimiste est retirée après invalidation avec une SnackBar générique — l'article « se décoche tout seul » sans explication (voir SHOP-9).
 - ⚠️ **INV-16 côté client uniquement** : tous les produits sont chargés en RAM puis affichés par tranches ; pas de pagination API (le backend n'expose pas de params `page`/`limit`). OK à l'échelle d'un foyer, limite au-delà de quelques milliers de produits. Recherche sans debounce (recalcul + reset pagination à chaque frappe).
-- ⚠️ **SPLASH-1 partiel** : l'attente au démarrage est bornée par les timeouts Dio (15 s max) + mode dégradé AUTH-7, mais pas de timeout sur la lecture Keystore ni d'UI d'attente/fallback si ça traîne.
+- ✅ **SPLASH-1 (résolu 2026-07-03)** : lecture Keystore bornée à 5 s, UI de fallback après 6 s (message + raccourci « Vérifier l'adresse du serveur »), écran Serveur/API accessible pendant `AuthUnknown` ; en complément des timeouts Dio 15 s + mode dégradé AUTH-7.
 - ⚠️ **`X-Household-Id` toujours absent** (TECH-2) — mono-foyer fonctionne (le backend retombe sur le 1er foyer). Pas de `PopScope` sur la coquille (TECH-5 : retour Android = fermeture de l'app), pas d'`errorBuilder`/404 go_router (TECH-4), noms de routes = chaînes (TECH-3 partiel : routes nommées mais pas de classe centralisée), couplage `core → features` dans le routeur (TECH-7, ~26 imports), revalidation au resume limitée à la file courses (TECH-6).
 - ⚠️ **Haptique partielle** (UI-3) : présente sur scan réussi + cochage/multi-select courses ; absente des onglets/FAB et des succès/échecs de formulaires. Pas de `Semantics` sur la barre custom (A11Y-1). Tout en FR en dur, zéro `.arb` (I18N-1).
 - ⚠️ **Hex en dur restants** dans `home_screen.dart` (~9 couleurs) et `auth_widgets.dart` (HOME-7/DS-1) — ces écrans ne suivent pas les tokens alors que le dark theme est livré.
@@ -121,9 +121,9 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 | HOME-1 | Dashboard (comptage par emplacement, expirants top 5, salutation) | ✅ | P-Haute | M | `GET /products`, `GET /products/expiring?days=7`, `GET /locations` | — |
 | HOME-2 | Pull-to-refresh + états async | ✅ | P-Moy | S | idem | — |
 | HOME-3 | Rendre tuiles produit / lignes emplacement cliquables (→ détail/inventaire) | ✅ | P-Moy | S | — | INV-5, INV-2 |
-| HOME-4 | Confirmation logout (dialog natif) — *cosmétique : le logout existe déjà* | ⬜ | P-Basse | S | — | — |
-| HOME-5 | Actions rapides (Ajouter produit / Scanner) sur le dashboard | ⬜ | P-Basse | S | — | INV-6, SCAN-1 |
-| HOME-6 | Lien "voir tout" expirants → écran Péremptions | ⬜ | P-Basse | S | `GET /products/expiring?days=:n` | EXP-1 |
+| HOME-4 | Confirmation logout (dialog natif) — *cosmétique : le logout existe déjà* | ✅ | P-Basse | S | — | — |
+| HOME-5 | Actions rapides (Ajouter produit / Scanner) sur le dashboard | ✅ | P-Basse | S | — | INV-6, SCAN-1 |
+| HOME-6 | Lien "voir tout" expirants → écran Péremptions | ✅ | P-Basse | S | `GET /products/expiring?days=:n` | EXP-1 |
 | HOME-7 | Extraire couleurs hex en dur vers `AppColors` | ⬜ | P-Basse | S | — | DS-1 |
 | HOME-8 | Remplacer l'agrégation 3-requêtes par `GET /stats` (dette de conception) | ⬜ | P-Basse | S | `GET /stats` | STAT-1 |
 
@@ -244,14 +244,14 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 | ID | Titre | Statut | Prio | Taille | Endpoints | Deps |
 |----|-------|--------|------|--------|-----------|------|
 | MORE-1 | Écran "Plus" : menu de navigation réel (ListTile) vers sections | ✅ | P-Haute | S | — | — |
-| MORE-2 | Bouton Déconnexion dans "Plus" (+ confirmation) | ⬜ | P-Moy | S | — | AUTH-5 |
+| MORE-2 | Bouton Déconnexion dans "Plus" (+ confirmation) | ✅ | P-Moy | S | — | AUTH-5 |
 | PROF-1 | Profil : affichage infos (nom, email, préférences alimentaires, allergies) | ✅ | P-Moy | M | `GET /auth/me` | MORE-1 |
 | PROF-2 | Édition profil incl. **régimes/préférences alimentaires + allergies** (alimentent les suggestions anti-gaspi) | ✅ | P-Moy | M | `PUT /auth/profile` | PROF-1, AUTH-11 |
 | PROF-3 | Upload/retrait photo de profil (compression préalable) | ✅ | P-Basse | M | `PUT /auth/profile` | PROF-2 |
 | PROF-4 | Changement de mot de passe | ✅ | P-Moy | S | `PUT /auth/password` | PROF-1 |
 | MORE-3 | Paramètres app (thème clair/sombre, langue, à propos/version) | ✅ | P-Basse | M | — | DS-2, I18N-1 |
 
-*Points d'attention.* **Épic quasi complète (audit 2026-07-02)** : « Plus » est un vrai menu (Profil, Péremptions, Emplacements, Catégories, Paramètres, Serveur/API ; Recettes/Dépenses/Stats/Foyer en « Bientôt » désactivés). MORE-3 livre thème + à propos ; la **langue** reste un placeholder (« bientôt », lié à I18N-1). **Reste MORE-2** : aucune déconnexion depuis « Plus », et celle du dashboard est **sans confirmation** (HOME-4) — les deux ensemble font un seul petit ticket à fort effet démo. Restes qualité PROF : critères de force du mot de passe absents (AUTH-10), toggle visibilité partagé entre les 3 champs.
+*Points d'attention.* **Épic quasi complète (audit 2026-07-02)** : « Plus » est un vrai menu (Profil, Péremptions, Emplacements, Catégories, Paramètres, Serveur/API ; Recettes/Dépenses/Stats/Foyer en « Bientôt » désactivés). MORE-3 livre thème + à propos ; la **langue** reste un placeholder (« bientôt », lié à I18N-1). **MORE-2 livré (2026-07-03)** : entrée « Se déconnecter » dans « Plus » + confirmation depuis le dashboard (HOME-4), via le helper partagé `confirmAndLogout`. Restes qualité PROF : critères de force du mot de passe absents (AUTH-10), toggle visibilité partagé entre les 3 champs.
 
 ---
 
@@ -289,8 +289,8 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 | TEST-1 | Tests unitaires (`fromJson`, repositories, providers) | ✅ | P-Moy | M | 8 fichiers, 72 tests verts (JWT, 401, buckets, file offline, modèles, vue inventaire, profil) | — |
 | TEST-2 | Tests widget (écrans clés) + golden (Design System) | 🟠 | P-Basse | M | 1 seul test widget (login) | TEST-1 |
 | CI-1 | CI (`flutter analyze` + `flutter test` + build) | ⬜ | P-Moy | S | — | TEST-1 |
-| ENV-1 | **Réseau device de démo** : doc + script base URL LAN, backend bind `0.0.0.0`, même wifi, **`network_security_config.xml` (Android cleartext) / exception ATS `Info.plist` (iOS)** | 🟠 | **P-Haute** | M | fait : URL configurable in-app (persistée, accessible déconnecté) + ATS iOS ; reste : config cleartext Android (précaution — `dart:io` ne l'applique pas, à valider sur device) + doc + répétition device | — |
-| SPLASH-1 | Timeout de sécurité UX sur le splash (fallback si `/auth/me` bloque ou lecture Keystore lente) | 🟠 | P-Haute | S | attente bornée par timeouts Dio 15 s + mode dégradé AUTH-7 ; pas de borne sur la lecture Keystore ni d'UI de fallback | AUTH-7 |
+| ENV-1 | **Réseau device de démo** : doc + script base URL LAN, backend bind `0.0.0.0`, même wifi, **`network_security_config.xml` (Android cleartext) / exception ATS `Info.plist` (iOS)** | 🟠 | **P-Haute** | M | fait : URL configurable in-app (persistée, accessible déconnecté) + ATS iOS + **`network_security_config.xml` Android (cleartext, référencé au manifest)** ; reste : doc procédure réseau + répétition/validation sur device réel | — |
+| SPLASH-1 | Timeout de sécurité UX sur le splash (fallback si `/auth/me` bloque ou lecture Keystore lente) | ✅ | P-Haute | S | lecture Keystore bornée à 5 s + UI de fallback après 6 s (message + raccourci Serveur/API) + Serveur/API accessible pendant AuthUnknown ; complète les timeouts Dio 15 s + mode dégradé AUTH-7 | AUTH-7 |
 | BUILD-1 | Pipeline build/signing/distribution APK Android (keystore) + canal de test | ⬜ | P-Moy | M | livrable démo | — |
 
 ---
@@ -298,17 +298,19 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 ## 5. Phasage / Jalons
 
 > **Point d'étape 2026-07-02 (J-4 avant soutenance)** : la Phase 0 est **entièrement livrée**, ainsi que l'essentiel de la Phase 1 prévue post-soutenance (inventaire complet, scanner complet hors OCR, courses complètes, péremptions, profil, dark theme, tests unitaires). Le parcours de démo « se connecter → voir son frigo → scanner/saisir un code-barre → ajouter le produit → l'ajouter à une liste → le cocher » est **fonctionnel de bout en bout dans le code**. Ce qui reste avant le 6 juillet est de la **préparation de démo**, pas du développement.
+>
+> **Delta 2026-07-03 (J-3)** : le polish démo restant est livré et vérifié (`flutter analyze` 0 issue, 72 tests verts) — **SPLASH-1** (filet de sécurité au démarrage), **ENV-1 (partie code)** (`network_security_config.xml` Android), **HOME-4/5/6** (logout confirmé, actions rapides, lien « Voir tout »), **MORE-2** (déconnexion dans « Plus »). **Seul reste bloquant avant la soutenance : DEMO-1** — données de seed + répétition sur device réel (tâches manuelles, hors code).
 
 ### Reste avant la soutenance (6 juillet 2026) — par ordre de priorité
 
-1. **DEMO-1 (bloquant, voir §7)** : réseau du téléphone de démo (IP LAN, backend `0.0.0.0`, même wifi — l'URL est désormais réglable **dans l'app**, écran Serveur/API accessible déconnecté) + **données de seed** (frigo crédible, produit qui périme bientôt, code-barre connu d'Open Food Facts, liste de courses) + **répétition complète sur le vrai device**. Le scanner n'a jamais pu être validé sur émulateur → c'est LE test critique du device.
-2. **ENV-1 (reste)** : ajouter `network_security_config.xml` Android par précaution, documenter la procédure réseau, valider le HTTP clair sur le device réel.
-3. **Polish bon marché à fort effet démo** (optionnel, ~0,5j) : HOME-4 + MORE-2 (confirmation logout + entrée Déconnexion dans « Plus »), HOME-6 (lien « voir tout » → Péremptions), HOME-5 (actions rapides dashboard).
-4. **Filet de sécurité** : SPLASH-1 (borne explicite + UI de fallback — le risque est déjà réduit par les timeouts Dio 15 s et le mode dégradé AUTH-7).
+1. **DEMO-1 (seul reste bloquant, voir §7)** : réseau du téléphone de démo (IP LAN, backend `0.0.0.0`, même wifi — l'URL est réglable **dans l'app**, écran Serveur/API accessible déconnecté ; cleartext Android désormais autorisé, ENV-1) + **données de seed** (frigo crédible, produit qui périme bientôt, code-barre connu d'Open Food Facts, liste de courses) + **répétition complète sur le vrai device**. Le scanner n'a jamais pu être validé sur émulateur → c'est LE test critique du device. **Tâches manuelles, hors code.**
+2. ✅ **ENV-1 (partie code, livrée 2026-07-03)** : `network_security_config.xml` Android (cleartext) référencé au manifest. Reste : documenter la procédure réseau + valider le HTTP clair sur le device réel (dans DEMO-1).
+3. ✅ **Polish démo (livré 2026-07-03)** : HOME-4 + MORE-2 (logout confirmé + entrée « Se déconnecter » dans « Plus »), HOME-6 (lien « Voir tout » → Péremptions), HOME-5 (actions rapides dashboard).
+4. ✅ **Filet de sécurité (livré 2026-07-03)** : SPLASH-1 (borne Keystore 5 s + UI de fallback + échappatoire Serveur/API), en complément des timeouts Dio 15 s et du mode dégradé AUTH-7.
 
 ### Phase 1 — Reste à faire post-soutenance
 - Scanner : SCAN-7/8 (ticket OCR), SCAN-9 (historique tickets).
-- Qualité/UX : UI-2 (erreurs différenciées partout), UI-3 (haptique complète), SHOP-9 (feedback rollback sync), INV-17 (debounce recherche), HOME-4/5/6/7/8, MORE-2.
+- Qualité/UX : UI-2 (erreurs différenciées partout), UI-3 (haptique complète), SHOP-9 (feedback rollback sync), INV-17 (debounce recherche), HOME-7/8.
 - Foyer : FOY-1/2/4/5 + TECH-2 (multi-foyer), FOY-9.
 - Transverse : TECH-3/4/5/6, DS-1 (retrait hex en dur), BUILD-1 (APK signé), CI-1, AUTH-8/11.
 
@@ -325,7 +327,7 @@ Le mobile vise la **parité fonctionnelle progressive** avec le web, en priorisa
 
 | Chantier | Tickets | État | Note |
 |----------|---------|------|------|
-| **Fondations démo** | DEMO-1, ENV-1, SPLASH-1, BUILD-1 | 🟠 | **Seul chantier encore bloquant soutenance.** URL réglable in-app + ATS iOS livrés ; restent : seed + répétition sur device (DEMO-1), cleartext Android + doc (ENV-1), borne Keystore (SPLASH-1), APK signé (BUILD-1, post-soutenance possible). |
+| **Fondations démo** | DEMO-1, ENV-1, SPLASH-1, BUILD-1 | 🟠 | **Seul reste bloquant : DEMO-1 (seed + répétition device, manuel).** Livrés : URL réglable in-app + ATS iOS + cleartext Android (ENV-1 code), SPLASH-1 (borne Keystore + fallback). Restent : doc réseau (ENV-1), APK signé (BUILD-1, post-soutenance possible). |
 | **401 (pas de refresh)** | TECH-1 (= AUTH-6), AUTH-7 | ✅ | AUTH-7 (démarrage/hors-ligne) + AUTH-6/TECH-1 (401 runtime → logout) livrés. Absence de refresh-token **à confirmer côté backend**. |
 | **États UI** | UI-1, UI-2 | 🟠 | UI-1 livré (loading/erreur+retry/vide partout). UI-2 partiel : différencié dans les réglages serveur seulement, messages génériques ailleurs — aucune stacktrace ne fuit. |
 | **Sérialisation produit** | INV-0 | ✅ | Livré, photo incluse (INV-10). |
