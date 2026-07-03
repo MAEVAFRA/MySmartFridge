@@ -146,6 +146,17 @@ class _ExpiringSection extends StatelessWidget {
                   ),
                 ),
               ),
+              // HOME-6 : accès à la vue Péremptions complète (fenêtre 3/7/14/30 j).
+              TextButton(
+                onPressed: () => context.push('/expiring'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF9A3412),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('Voir tout'),
+              ),
             ],
           ),
           const SizedBox(height: 12),
