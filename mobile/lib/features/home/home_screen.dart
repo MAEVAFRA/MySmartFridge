@@ -10,6 +10,7 @@ import '../auth/application/auth_controller.dart';
 import '../auth/presentation/logout_action.dart';
 import '../inventory/application/inventory_providers.dart';
 import '../inventory/domain/inventory_models.dart';
+import '../inventory/presentation/add_product_sheet.dart';
 import '../inventory/presentation/location_style.dart';
 import 'dashboard_provider.dart';
 
@@ -77,6 +78,8 @@ class HomeScreen extends ConsumerWidget {
                 style: TextStyle(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 20),
+              const _QuickActions(),
+              const SizedBox(height: 20),
               _ExpiringSection(expiring: data.expiring),
               const SizedBox(height: 20),
               _StockSection(total: data.totalProducts, locations: data.locations),
@@ -84,6 +87,45 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Actions rapides (HOME-5) : ajouter un produit / scanner un code-barre
+// ---------------------------------------------------------------------------
+
+class _QuickActions extends StatelessWidget {
+  const _QuickActions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: FilledButton.tonalIcon(
+            // Ouvre le formulaire d'ajout (le sheet invalide le dashboard au
+            // succès → l'accueil se rafraîchit tout seul).
+            onPressed: () => showAddProductSheet(context),
+            icon: const Icon(Icons.add),
+            label: const Text('Ajouter'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FilledButton.tonalIcon(
+            onPressed: () => context.push('/scan'),
+            icon: const Icon(Icons.qr_code_scanner),
+            label: const Text('Scanner'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
