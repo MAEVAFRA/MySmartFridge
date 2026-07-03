@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MySmartFridge — ENV-1
+
+  Autorise le trafic HTTP en clair. Le backend de dev/démo est joint par IP
+  locale (ex. http://192.168.1.42:5000), que le réseau Android bloquerait sinon :
+  le cleartext est interdit par défaut depuis Android 9 (API 28). C'est le miroir
+  de l'exception ATS iOS (NSAllowsArbitraryLoads) déjà en place dans Info.plist.
+
+  Le HTTPS reste évidemment utilisable tel quel. À restreindre pour une mise en
+  production (limiter `cleartextTrafficPermitted` aux seuls domaines réels).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
