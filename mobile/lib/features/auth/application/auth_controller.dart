@@ -50,7 +50,14 @@ class AuthController extends Notifier<AuthState> {
   /// session en mode dégradé (identité minimale issue du JWT), le profil complet
   /// étant rechargé via /auth/me au retour de la connexion.
   Future<void> _loadSession() async {
-    final token = await _tokenStorage.readToken();
+    // SPLASH-1 : on borne la lecture du Keystore. Un accès au stockage sécurisé
+    // qui traîne (Keystore lent/verrouillé) laisserait sinon l'app figée sur le
+    // splash indéfiniment. Au-delà du délai, on retombe sur « déconnecté » —
+    // l'utilisateur voit le login et peut se reconnecter, plutôt que d'attendre
+    // sans fin.
+    final token = await _tokenStorage
+        .readToken()
+        .timeout(const Duration(seconds: 5), onTimeout: () => null);
     if (token == null || token.isEmpty) {
       state = const AuthUnauthenticated();
       return;

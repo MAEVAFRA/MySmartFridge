@@ -70,14 +70,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       final auth = ref.read(authControllerProvider);
       final loc = state.matchedLocation;
 
+      // L'écran de réglages du serveur reste accessible en toutes circonstances,
+      // y compris pendant le chargement de session (SPLASH-1) : si /auth/me
+      // traîne (mauvaise URL, backend injoignable), l'utilisateur peut corriger
+      // l'adresse depuis le splash au lieu de rester bloqué. Sans lui, impossible
+      // non plus de réparer une URL erronée pour se connecter.
+      if (loc == _serverSettings) return null;
+
       // Session encore inconnue : on reste sur le splash.
       if (auth is AuthUnknown) {
         return loc == _splash ? null : _splash;
       }
-
-      // L'écran de réglages du serveur reste accessible déconnecté : sans lui,
-      // impossible de corriger une mauvaise URL d'API pour pouvoir se connecter.
-      if (loc == _serverSettings) return null;
 
       final loggedIn = auth is AuthAuthenticated;
       if (!loggedIn) {
