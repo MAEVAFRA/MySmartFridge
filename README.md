@@ -2,6 +2,8 @@
 
 Application web de gestion intelligente des stocks alimentaires (frigo, congélateur, placard).
 
+> 📱 **Une application mobile Flutter** (compagnon anti-gaspillage avec scan de code-barre) accompagne ce projet — voir [`mobile/`](mobile/README.md) et sa [ROADMAP](mobile/ROADMAP.md).
+
 ---
 
 ## ✨ Fonctionnalités
@@ -65,6 +67,11 @@ MySmartFridge/
 │ ├── .env
 │ ├── package.json
 │ └── Dockerfile
+│
+├── mobile/            # application mobile Flutter (voir mobile/README.md)
+│ ├── lib/
+│ ├── test/
+│ └── pubspec.yaml
 │
 ├── docker-compose.yml
 └── README.md
