@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MySmartFridge 🧊 — Soutenance</title>
+<!--
+  Diaporama de soutenance — MySmartFridge
+  Navigation : ← →  ou  Espace / PageUp-PageDown  ·  F = plein écran  ·  Home/Fin
+  Export PDF : Ctrl+P → « Enregistrer au format PDF » (paysage, marges nulles)
+-->
+<style>
+  :root{
+    --p50:#eff6ff; --p100:#dbeafe; --p200:#bfdbfe; --p300:#93c5fd;
+    --p400:#60a5fa; --p500:#3b82f6; --p600:#2563eb; --p700:#1d4ed8; --p800:#1e40af; --p900:#1e3a8a;
+    --fridge:#3B82F6; --freezer:#06B6D4; --pantry:#F59E0B;
+    --bg:#f8fafc; --card:#ffffff;
+    --g900:#111827; --g800:#1f2937; --g700:#374151; --g600:#4b5563; --g500:#6b7280;
+    --g400:#9ca3af; --g300:#d1d5db; --g200:#e5e7eb; --g100:#f3f4f6; --g50:#f9fafb;
+    --green:#10b981; --red:#ef4444; --orange:#f97316; --amber:#f59e0b; --yellow:#eab308;
+    --sh-sm:0 1px 2px 0 rgb(0 0 0/.05);
+    --sh:0 1px 3px 0 rgb(0 0 0/.1),0 1px 2px -1px rgb(0 0 0/.1);
+    --sh-md:0 4px 6px -1px rgb(0 0 0/.1),0 2px 4px -2px rgb(0 0 0/.1);
+    --sh-lg:0 10px 15px -3px rgb(0 0 0/.1),0 4px 6px -4px rgb(0 0 0/.1);
+    --sh-xl:0 20px 25px -5px rgb(0 0 0/.1),0 8px 10px -6px rgb(0 0 0/.1);
+    --font:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--font);background:#0b1220;color:var(--g900);overflow:hidden}
+
+  /* progress + counter */
+  .progress{position:fixed;top:0;left:0;height:3px;width:100%;background:transparent;z-index:120}
+  .progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--p500),var(--freezer));transition:width .35s ease}
+
+  /* app bar (réplique du header de l'appli) */
+  .appbar{position:fixed;top:0;left:0;right:0;height:64px;background:#fff;border-bottom:1px solid var(--g200);box-shadow:var(--sh-sm);z-index:110}
+  .appbar-in{max-width:1280px;height:100%;margin:0 auto;padding:0 28px;display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:9px}
+  .brand-icon{width:30px;height:30px;color:var(--p600)}
+  .brand-name{font-size:19px;font-weight:700;color:var(--g900);letter-spacing:-.01em}
+  .bar-right{display:flex;align-items:center;gap:14px}
+  .bar-section{font-size:13px;font-weight:600;color:var(--g500)}
+  .bar-speaker{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--g100);color:var(--g600)}
+  .bar-speaker[data-who="Omar"]{background:#eff6ff;color:var(--p700)}
+  .bar-speaker[data-who="Hugo"]{background:#ecfeff;color:#0e7490}
+  .bar-speaker[data-who="Maëva"]{background:#fffbeb;color:#b45309}
+  .bar-count{font-size:12px;font-weight:600;color:var(--g400);min-width:52px;text-align:right}
+  body.bare .appbar{display:none}
+
+  /* deck & slides */
+  .deck{position:fixed;inset:0}
+  .slide{position:absolute;inset:0;display:none;flex-direction:column;justify-content:center;
+    padding:92px 7vw 60px;background:var(--bg);overflow:auto}
+  .slide.active{display:flex;animation:fade .4s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .slide-body{width:100%;max-width:1120px;margin:0 auto}
+
+  .eyebrow{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--p600);margin-bottom:14px}
+  h2.title{font-size:clamp(30px,4.4vw,46px);font-weight:800;color:var(--g900);letter-spacing:-.02em;line-height:1.08}
+  .sub{margin-top:12px;font-size:clamp(16px,1.7vw,19px);color:var(--g500);line-height:1.5;max-width:840px}
+  .accent{color:var(--p600)}
+
+  /* icons */
+  .icon{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:block}
+  .tile{flex:none;display:grid;place-items:center;border-radius:12px}
+  .tile svg{width:52%;height:52%;color:#fff}
+  .tile.blue{background:var(--fridge)} .tile.cyan{background:var(--freezer)} .tile.amber{background:var(--pantry)}
+  .tile.indigo{background:#6366f1} .tile.violet{background:#8b5cf6} .tile.green{background:var(--green)}
+  .tile.rose{background:#f43f5e} .tile.slate{background:#475569} .tile.orange{background:var(--orange)}
+  .tile.teal{background:#14b8a6}
+
+  /* cards & grids */
+  .card{background:var(--card);border:1px solid var(--g200);border-radius:16px;box-shadow:var(--sh);padding:22px}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:900px){.g3,.g4{grid-template-columns:repeat(2,1fr)}}
+
+  .feat{display:flex;gap:14px;align-items:flex-start}
+  .feat .tile{width:46px;height:46px}
+  .feat h3{font-size:16px;font-weight:700;color:var(--g900);margin-bottom:3px}
+  .feat p{font-size:13.5px;color:var(--g500);line-height:1.45}
+
+  ul.bullets{list-style:none;display:flex;flex-direction:column;gap:12px;margin-top:8px}
+  ul.bullets li{display:flex;gap:12px;align-items:flex-start;font-size:16.5px;color:var(--g700);line-height:1.45}
+  ul.bullets li .chk{flex:none;width:24px;height:24px;border-radius:7px;background:var(--p50);color:var(--p600);display:grid;place-items:center;margin-top:1px}
+  ul.bullets li .chk svg{width:15px;height:15px}
+  ul.bullets li b{color:var(--g900);font-weight:700}
+
+  .pill{display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border-radius:999px;font-size:14px;font-weight:600;background:var(--p50);color:var(--p700);border:1px solid var(--p100)}
+  .pill.cyan{background:#ecfeff;color:#0e7490;border-color:#cffafe}
+  .pill.amber{background:#fffbeb;color:#b45309;border-color:#fde68a}
+  .pill.green{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
+  .pill.gray{background:var(--g100);color:var(--g600);border-color:var(--g200)}
+
+  .kpi{font-size:clamp(30px,4vw,44px);font-weight:800;letter-spacing:-.02em;color:var(--p600);line-height:1}
+  .kpi-l{font-size:13.5px;color:var(--g500);margin-top:6px;font-weight:600}
+
+  table.t{width:100%;border-collapse:collapse;font-size:14.5px;background:#fff;border-radius:14px;overflow:hidden;box-shadow:var(--sh);border:1px solid var(--g200)}
+  table.t th{background:var(--g50);text-align:left;padding:11px 14px;font-weight:700;color:var(--g600);font-size:12.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--g200)}
+  table.t td{padding:11px 14px;border-bottom:1px solid var(--g100);color:var(--g700)}
+  table.t tr:last-child td{border-bottom:none}
+  table.t tr.hi td{background:#eff6ff;font-weight:600;color:var(--g900)}
+  .badge{display:inline-block;padding:2px 9px;border-radius:6px;font-size:12px;font-weight:700;font-family:ui-monospace,monospace}
+  .m-get{background:#ecfdf5;color:#047857}.m-post{background:#eff6ff;color:var(--p700)}
+  .m-put{background:#fffbeb;color:#b45309}.m-del{background:#fef2f2;color:#b91c1c}.m-crud{background:#f5f3ff;color:#6d28d9}
+  .yes{color:var(--green);font-weight:700}.no{color:var(--red);font-weight:700}.mid{color:var(--amber);font-weight:700}
+
+  /* title slide */
+  .cover{background:radial-gradient(1200px 600px at 15% -10%,#2563eb 0%,#1e40af 45%,#1e3a8a 100%);color:#fff;
+    align-items:flex-start;text-align:left;padding:8vh 9vw;overflow:hidden}
+  .cover .glow{position:absolute;border-radius:50%;filter:blur(70px);opacity:.5}
+  .cover .glow.a{width:420px;height:420px;background:#38bdf8;top:-120px;right:-60px}
+  .cover .glow.b{width:360px;height:360px;background:#0ea5e9;bottom:-140px;left:20%;opacity:.35}
+  .cover-in{position:relative;z-index:2;max-width:1000px}
+  .logo-lg{display:flex;align-items:center;gap:16px;margin-bottom:26px}
+  .logo-lg .ring{width:76px;height:76px;border-radius:20px;background:rgba(255,255,255,.14);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.25);display:grid;place-items:center}
+  .logo-lg .ring svg{width:42px;height:42px;color:#fff}
+  .logo-lg .name{font-size:clamp(34px,5vw,52px);font-weight:800;letter-spacing:-.02em}
+  .cover h1{font-size:clamp(20px,2.5vw,27px);font-weight:600;color:#dbeafe;line-height:1.3;max-width:760px}
+  .cover .tags{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+  .cover .tag{padding:7px 15px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);font-size:14.5px;font-weight:600;color:#eff6ff}
+  .team{display:flex;flex-wrap:wrap;gap:14px;margin-top:38px}
+  .team .m{display:flex;align-items:center;gap:11px;padding:11px 16px 11px 11px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:14px}
+  .team .av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff;font-size:15px}
+  .team .m b{display:block;font-size:15.5px;color:#fff;font-weight:700}
+  .team .m span{font-size:12.5px;color:#bfdbfe}
+  .cover-foot{position:absolute;left:9vw;bottom:5vh;z-index:2;display:flex;gap:22px;align-items:center;color:#bfdbfe;font-size:14.5px;font-weight:500}
+  .cover-foot .dot{width:5px;height:5px;border-radius:50%;background:#60a5fa}
+
+  /* closing slide */
+  .closing{background:radial-gradient(1000px 500px at 85% 110%,#2563eb 0%,#1e3a8a 60%,#172554 100%);color:#fff;align-items:center;text-align:center;overflow:hidden}
+  .closing h2{font-size:clamp(40px,6vw,68px);font-weight:800;letter-spacing:-.02em}
+  .closing p{margin-top:16px;font-size:clamp(17px,2vw,21px);color:#dbeafe}
+  .closing .repo{margin-top:26px;display:inline-flex;gap:9px;align-items:center;padding:10px 18px;border-radius:12px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);font-size:15px;font-family:ui-monospace,monospace;color:#eff6ff}
+
+  /* architecture diagram */
+  .arch{display:flex;align-items:stretch;gap:12px;flex-wrap:wrap;justify-content:center}
+  .node{background:#fff;border:1.5px solid var(--g200);border-radius:14px;box-shadow:var(--sh);padding:16px 18px;min-width:150px;display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center}
+  .node .tile{width:42px;height:42px}
+  .node b{font-size:15px;color:var(--g900)}
+  .node span{font-size:12px;color:var(--g500)}
+  .node.hero{border-color:var(--p300);background:linear-gradient(180deg,#eff6ff,#fff)}
+  .arrow{display:flex;align-items:center;color:var(--p400);font-size:26px;font-weight:800}
+  .col{display:flex;flex-direction:column;gap:10px;justify-content:center}
+  .wrap-note{margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+
+  /* moscow */
+  .moscow{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .mo{border-radius:16px;padding:18px;border:1.5px solid;display:flex;flex-direction:column;gap:10px}
+  .mo h4{font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .mo ul{list-style:none;display:flex;flex-direction:column;gap:7px}
+  .mo li{font-size:13px;color:var(--g600);line-height:1.35;padding-left:14px;position:relative}
+  .mo li:before{content:"";position:absolute;left:0;top:7px;width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.5}
+  .mo.must{background:#ecfdf5;border-color:#a7f3d0}.mo.must h4{color:#047857}
+  .mo.should{background:#eff6ff;border-color:#bfdbfe}.mo.should h4{color:var(--p700)}
+  .mo.could{background:#fffbeb;border-color:#fde68a}.mo.could h4{color:#b45309}
+  .mo.wont{background:#f5f3ff;border-color:#ddd6fe}.mo.wont h4{color:#6d28d9}
+
+  /* timeline */
+  .timeline{display:flex;gap:0;align-items:stretch;overflow-x:auto;padding-bottom:6px}
+  .tl{flex:1;min-width:118px;position:relative;padding:0 6px}
+  .tl .top{height:34px;display:flex;align-items:center}
+  .tl .line{position:absolute;top:16px;left:0;right:0;height:3px;background:var(--g200)}
+  .tl .dot{position:relative;z-index:2;width:16px;height:16px;border-radius:50%;background:var(--p600);border:3px solid #fff;box-shadow:0 0 0 2px var(--p200);margin-left:6px}
+  .tl.done .dot{background:var(--green);box-shadow:0 0 0 2px #a7f3d0}
+  .tl .body{margin-top:10px}
+  .tl b{font-size:13.5px;color:var(--g900);display:block}
+  .tl .per{font-size:11.5px;color:var(--p600);font-weight:700;margin:2px 0 6px}
+  .tl p{font-size:12px;color:var(--g500);line-height:1.35}
+
+  /* phone mockup */
+  .phone{width:236px;height:474px;border-radius:34px;background:#0f172a;padding:10px;box-shadow:var(--sh-xl);flex:none;position:relative}
+  .phone:before{content:"";position:absolute;top:14px;left:50%;transform:translateX(-50%);width:70px;height:6px;border-radius:6px;background:#334155;z-index:3}
+  .screen{width:100%;height:100%;border-radius:26px;background:var(--bg);overflow:hidden;display:flex;flex-direction:column}
+  .ph-top{background:#fff;border-bottom:1px solid var(--g200);padding:20px 14px 10px;display:flex;align-items:center;gap:8px}
+  .ph-top svg{width:20px;height:20px;color:var(--p600)}
+  .ph-top b{font-size:14px;color:var(--g900)}
+  .ph-body{padding:12px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .ph-card{background:#fff;border:1px solid var(--g200);border-radius:12px;padding:10px 11px;display:flex;align-items:center;gap:10px;box-shadow:var(--sh-sm)}
+  .ph-card .pt{width:34px;height:34px;border-radius:9px;display:grid;place-items:center}
+  .ph-card .pt svg{width:18px;height:18px;color:#fff}
+  .ph-card .l1{font-size:12.5px;font-weight:700;color:var(--g900)}
+  .ph-card .l2{font-size:10.5px;color:var(--g500);margin-top:1px}
+  .ph-tag{margin-left:auto;font-size:9.5px;font-weight:700;padding:3px 7px;border-radius:6px}
+
+  .note{margin-top:18px;font-size:13.5px;color:var(--g500);display:flex;align-items:center;gap:8px}
+  .note svg{width:16px;height:16px;color:var(--g400)}
+
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:center}
+  @media(max-width:900px){.two{grid-template-columns:1fr}}
+  .lead{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .lead .tile{width:52px;height:52px}
+
+  /* hud */
+  .hud{position:fixed;bottom:16px;right:20px;z-index:120;display:flex;align-items:center;gap:6px}
+  .navbtn{width:38px;height:38px;border-radius:11px;border:1px solid var(--g200);background:#fff;color:var(--g600);box-shadow:var(--sh);cursor:pointer;display:grid;place-items:center;transition:.15s}
+  .navbtn:hover{color:var(--p600);border-color:var(--p200);background:var(--p50)}
+  .navbtn svg{width:20px;height:20px}
+  .hud-count{font-size:13px;font-weight:700;color:var(--g500);background:#fff;border:1px solid var(--g200);border-radius:11px;box-shadow:var(--sh);padding:0 12px;height:38px;display:flex;align-items:center;min-width:64px;justify-content:center}
+  body.bare .hud-count{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.25)}
+  body.bare .navbtn{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.25)}
+  body.bare .navbtn:hover{background:rgba(255,255,255,.28)}
+
+  .kbd{position:fixed;bottom:18px;left:20px;z-index:120;font-size:12px;color:#93c5fd;font-weight:500;display:flex;gap:6px;align-items:center}
+  .kbd kbd{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:2px 7px;font-family:var(--font);font-size:11px;color:#eff6ff}
+  body:not(.bare) .kbd{display:none}
+
+  @media print{
+    body{overflow:visible;background:#fff}
+    .slide{position:relative;display:flex!important;page-break-after:always;height:100vh;inset:auto;animation:none}
+    .appbar{position:absolute}.progress,.hud,.kbd{display:none}
+    body.bare .appbar{display:none}
+  }
+</style>
+</head>
+<body class="bare">
+
+<!-- ===== SVG sprite ===== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-fridge" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2.5"/><path d="M5 10h14"/><path d="M15 5.5v2"/><path d="M15 13v3"/></symbol>
+  <symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9L4.9 19.1"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8v8a2 2 0 0 1-1 1.73l-7 4a2 2 0 0 1-2 0l-7-4A2 2 0 0 1 3 16V8a2 2 0 0 1 1-1.73l7-4a2 2 0 0 1 2 0l7 4A2 2 0 0 1 21 8Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></symbol>
+  <symbol id="i-chef" viewBox="0 0 24 24"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><path d="M6 17h12"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></symbol>
+  <symbol id="i-cart" viewBox="0 0 24 24"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><path d="M6 6h.01"/><path d="M6 18h.01"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2.5"/><path d="M12 18h.01"/></symbol>
+  <symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1Z"/></symbol>
+  <symbol id="i-git" viewBox="0 0 24 24"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+  <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+  <symbol id="i-arrow-l" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+  <symbol id="i-cam" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></symbol>
+</svg>
+
+<div class="progress"><div class="progress-bar" id="pbar"></div></div>
+
+<div class="appbar" id="appbar">
+  <div class="appbar-in">
+    <div class="brand"><svg class="icon brand-icon"><use href="#i-fridge"/></svg><span class="brand-name">MySmartFridge</span></div>
+    <div class="bar-right">
+      <span class="bar-section" id="bar-section"></span>
+      <span class="bar-speaker" id="bar-speaker"></span>
+      <span class="bar-count" id="bar-count"></span>
+    </div>
+  </div>
+</div>
+
+<div class="deck" id="deck">
+
+  <!-- 1 · COUVERTURE -->
+  <section class="slide cover" data-noappbar>
+    <div class="glow a"></div><div class="glow b"></div>
+    <div class="cover-in">
+      <div class="logo-lg">
+        <div class="ring"><svg class="icon"><use href="#i-fridge"/></svg></div>
+        <div class="name">MySmartFridge <span style="font-size:.7em">🧊</span></div>
+      </div>
+      <h1>Gestion intelligente des stocks alimentaires — anti-gaspillage, collaborative et multi-plateforme.</h1>
+      <div class="tags">
+        <span class="tag">Plateforme Web · React</span>
+        <span class="tag">Application Mobile · Flutter</span>
+        <span class="tag">API REST · Node / PostgreSQL</span>
+      </div>
+      <div class="team">
+        <div class="m"><div class="av" style="background:#3B82F6">OA</div><div><b>Omar Amri</b><span>Backend · API · Mobile</span></div></div>
+        <div class="m"><div class="av" style="background:#F59E0B">MT</div><div><b>Maëva Taïte</b><span>Docker · Front · Mobile</span></div></div>
+        <div class="m"><div class="av" style="background:#06B6D4">HM</div><div><b>Hugo Maréchaux</b><span>BDD · Backend · Mobile</span></div></div>
+      </div>
+    </div>
+    <div class="cover-foot">
+      <span>Ynov — B3 Informatique · Développement</span><span class="dot"></span>
+      <span>Soutenance du 6 juillet 2026</span><span class="dot"></span><span>v1.0</span>
+    </div>
+  </section>
+
+  <!-- 2 · PLAN -->
+  <section class="slide" data-section="Introduction" data-speaker="Omar">
+    <div class="slide-body">
+      <span class="eyebrow">Déroulé de la présentation</span>
+      <h2 class="title">Au programme</h2>
+      <div class="grid g3" style="margin-top:26px">
+        <div class="card feat"><div class="tile blue"><svg class="icon"><use href="#i-target"/></svg></div><div><h3>1 · Le projet</h3><p>Contexte, objectifs et périmètre</p></div></div>
+        <div class="card feat"><div class="tile cyan"><svg class="icon"><use href="#i-box"/></svg></div><div><h3>2 · Le produit</h3><p>Les fonctionnalités clés de l'app</p></div></div>
+        <div class="card feat"><div class="tile amber"><svg class="icon"><use href="#i-doc"/></svg></div><div><h3>3 · Le besoin</h3><p>Cahier des charges & données</p></div></div>
+        <div class="card feat"><div class="tile indigo"><svg class="icon"><use href="#i-layers"/></svg></div><div><h3>4 · La technique</h3><p>Architecture, stack & mobile</p></div></div>
+        <div class="card feat"><div class="tile violet"><svg class="icon"><use href="#i-git"/></svg></div><div><h3>5 · La gestion</h3><p>Méthode, outils & planning</p></div></div>
+        <div class="card feat"><div class="tile green"><svg class="icon"><use href="#i-rocket"/></svg></div><div><h3>6 · Le bilan</h3><p>Résultats & perspectives</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · CONTEXTE -->
+  <section class="slide" data-section="1 · Le projet" data-speaker="Omar">
+    <div class="slide-body">
+      <span class="eyebrow">Contexte & enjeu</span>
+      <h2 class="title">Le frigo, c'est vite le désordre.</h2>
+      <div class="two" style="margin-top:26px">
+        <ul class="bullets">
+          <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>Une gestion des aliments <b>approximative</b> à la maison : produits oubliés, dates de péremption non suivies.</span></li>
+          <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>Source de <b>gaspillage</b> et de <b>dépenses inutiles</b> au quotidien.</span></li>
+          <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>Les solutions existantes sont <b>trop complexes</b>, <b>mono-utilisateur</b>, ou inadaptées au <b>foyer partagé</b>.</span></li>
+        </ul>
+        <div class="card" style="background:linear-gradient(180deg,#eff6ff,#fff);border-color:var(--p200)">
+          <div class="kpi">≈ 30 kg</div>
+          <div class="kpi-l">d'aliments jetés par personne et par an en France <span style="color:var(--g400)">(estimation ADEME)</span></div>
+          <div style="height:1px;background:var(--g200);margin:16px 0"></div>
+          <p style="font-size:15px;color:var(--g600);line-height:1.5">👉 D'où <b style="color:var(--p700)">MySmartFridge</b> : une solution <b>complète</b>, <b>moderne</b> et <b>collaborative</b> pour inventorier, anticiper et partager.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 · OBJECTIFS -->
+  <section class="slide" data-section="1 · Le projet" data-speaker="Omar">
+    <div class="slide-body">
+      <span class="eyebrow">Ce que l'on veut résoudre</span>
+      <h2 class="title">7 objectifs</h2>
+      <div class="grid g3" style="margin-top:24px">
+        <div class="card feat"><div class="tile green"><svg class="icon"><use href="#i-leaf"/></svg></div><div><h3>Réduire le gaspillage</h3><p>Suivi des dates de péremption</p></div></div>
+        <div class="card feat"><div class="tile blue"><svg class="icon"><use href="#i-box"/></svg></div><div><h3>Simplifier l'inventaire</h3><p>Frigo, congélateur, placards</p></div></div>
+        <div class="card feat"><div class="tile violet"><svg class="icon"><use href="#i-scan"/></svg></div><div><h3>Automatiser l'ajout</h3><p>Code-barres & OCR de tickets</p></div></div>
+        <div class="card feat"><div class="tile orange"><svg class="icon"><use href="#i-chef"/></svg></div><div><h3>Recettes intelligentes</h3><p>Basées sur les stocks dispo</p></div></div>
+        <div class="card feat"><div class="tile cyan"><svg class="icon"><use href="#i-users"/></svg></div><div><h3>Gestion collaborative</h3><p>Entre membres d'un foyer</p></div></div>
+        <div class="card feat"><div class="tile rose"><svg class="icon"><use href="#i-wallet"/></svg></div><div><h3>Répartir les dépenses</h3><p>Équitablement (type Splitwise)</p></div></div>
+      </div>
+      <div class="note"><svg class="icon"><use href="#i-chart"/></svg> + Des <b style="color:var(--g700);margin:0 4px">statistiques</b> de consommation et de gaspillage.</div>
+    </div>
+  </section>
+
+  <!-- 5 · PÉRIMÈTRE -->
+  <section class="slide" data-section="1 · Le projet" data-speaker="Omar">
+    <div class="slide-body">
+      <span class="eyebrow">Périmètre du projet</span>
+      <h2 class="title">Deux applications à livrer</h2>
+      <p class="sub">Le brief impose une <b>application web</b> <span style="color:var(--g400)">et</span> une <b>application mobile</b>, adossées à une même API REST.</p>
+      <div class="grid g2" style="margin-top:20px">
+        <div class="card feat" style="border-color:#bfdbfe;background:#f5f9ff">
+          <div class="tile blue" style="width:50px;height:50px"><svg class="icon"><use href="#i-monitor"/></svg></div>
+          <div><h3 style="font-size:17px">Application web · React</h3><p style="font-size:13.5px">Responsive / PWA — le back-office complet : inventaire, péremptions, scan OCR de tickets, recettes, dépenses & split, courses, statistiques, foyer multi-membres.</p></div>
+        </div>
+        <div class="card feat" style="border-color:#cffafe;background:#f2fdff">
+          <div class="tile cyan" style="width:50px;height:50px"><svg class="icon"><use href="#i-phone"/></svg></div>
+          <div><h3 style="font-size:17px">Application mobile · Flutter</h3><p style="font-size:13.5px">Client natif de l'API pensé pour la mobilité : scan de code-barres, inventaire, alertes de péremption, courses cochables en magasin (hors-ligne).</p></div>
+        </div>
+      </div>
+      <div class="note"><svg class="icon"><use href="#i-target"/></svg> Socle commun : <b style="color:var(--g700);margin:0 4px">API REST</b>, PostgreSQL, auth JWT, multi-foyers. &nbsp;·&nbsp; Hors périmètre : IA de reconnaissance d'image & intégration livraison.</div>
+    </div>
+  </section>
+
+  <!-- 6 · ÉQUIPE -->
+  <section class="slide" data-section="1 · Le projet" data-speaker="Omar">
+    <div class="slide-body">
+      <span class="eyebrow">Une équipe de 3</span>
+      <h2 class="title">Qui a fait quoi</h2>
+      <div class="grid g3" style="margin-top:22px">
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><div class="av" style="width:48px;height:48px;border-radius:50%;background:#3B82F6;color:#fff;display:grid;place-items:center;font-weight:800">OA</div><div><b style="font-size:17px;color:var(--g900)">Omar Amri</b><div style="font-size:12.5px;color:var(--p600);font-weight:700">Backend · API · Mobile</div></div></div>
+          <p style="font-size:13.5px;color:var(--g600);line-height:1.55">Authentification JWT, produits bientôt périmés, filtres & code couleur, création de foyer & invitations, <b>documentation API</b>.</p>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><div class="av" style="width:48px;height:48px;border-radius:50%;background:#F59E0B;color:#fff;display:grid;place-items:center;font-weight:800">MT</div><div><b style="font-size:17px;color:var(--g900)">Maëva Taïte</b><div style="font-size:12.5px;color:#b45309;font-weight:700">Docker · Front · Mobile</div></div></div>
+          <p style="font-size:13.5px;color:var(--g600);line-height:1.55">Initialisation du dépôt & <b>Docker</b>, <b>interface web</b> (React / Tailwind), intégration des écrans et branchement à l'API.</p>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><div class="av" style="width:48px;height:48px;border-radius:50%;background:#06B6D4;color:#fff;display:grid;place-items:center;font-weight:800">HM</div><div><b style="font-size:17px;color:var(--g900)">Hugo Maréchaux</b><div style="font-size:12.5px;color:#0e7490;font-weight:700">BDD · Backend · Mobile</div></div></div>
+          <p style="font-size:13.5px;color:var(--g600);line-height:1.55"><b>Base de données</b> (MCD → 30 tables), <b>backend</b> & contrôleurs, CRUD produits : ajout, édition, recherche, catégories.</p>
+        </div>
+      </div>
+      <div style="margin-top:18px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+        <div style="display:flex;gap:11px;align-items:center;padding:11px 16px;border-radius:12px;background:var(--p50);border:1px solid var(--p100)"><span class="tile cyan" style="width:34px;height:34px"><svg class="icon"><use href="#i-phone"/></svg></span><span style="font-size:14px;color:var(--g700)"><b style="color:var(--p700)">L'application mobile Flutter</b> a été construite par l'équipe à trois.</span></div>
+        <div class="wrap-note" style="margin:0"><span class="pill gray"><svg class="icon" style="width:15px;height:15px"><use href="#i-git"/></svg> GitHub</span><span class="pill gray"><svg class="icon" style="width:15px;height:15px"><use href="#i-list"/></svg> Trello</span><span class="pill gray">Discord</span><span class="pill gray">Notion</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 · FONCTIONNALITÉS -->
+  <section class="slide" data-section="2 · Le produit" data-speaker="Hugo">
+    <div class="slide-body">
+      <span class="eyebrow">Vue d'ensemble</span>
+      <h2 class="title">Une app, 9 domaines fonctionnels</h2>
+      <div class="grid g4" style="margin-top:22px">
+        <div class="card feat"><div class="tile blue"><svg class="icon"><use href="#i-box"/></svg></div><div><h3>Inventaire</h3><p>Produits, emplacements, catégories</p></div></div>
+        <div class="card feat"><div class="tile orange"><svg class="icon"><use href="#i-alert"/></svg></div><div><h3>Péremptions</h3><p>Alertes & code couleur</p></div></div>
+        <div class="card feat"><div class="tile violet"><svg class="icon"><use href="#i-scan"/></svg></div><div><h3>Scanner</h3><p>Code-barres & ticket OCR</p></div></div>
+        <div class="card feat"><div class="tile amber"><svg class="icon"><use href="#i-chef"/></svg></div><div><h3>Recettes</h3><p>Suggestions anti-gaspi</p></div></div>
+        <div class="card feat"><div class="tile rose"><svg class="icon"><use href="#i-wallet"/></svg></div><div><h3>Dépenses</h3><p>Split & soldes du foyer</p></div></div>
+        <div class="card feat"><div class="tile green"><svg class="icon"><use href="#i-cart"/></svg></div><div><h3>Courses</h3><p>Listes partagées</p></div></div>
+        <div class="card feat"><div class="tile teal"><svg class="icon"><use href="#i-chart"/></svg></div><div><h3>Statistiques</h3><p>Consommation & gaspillage</p></div></div>
+        <div class="card feat"><div class="tile cyan"><svg class="icon"><use href="#i-users"/></svg></div><div><h3>Foyer</h3><p>Membres, rôles, invitations</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 · PÉREMPTIONS -->
+  <section class="slide" data-section="2 · Le produit" data-speaker="Hugo">
+    <div class="slide-body">
+      <div class="lead"><span class="tile orange"><svg class="icon"><use href="#i-alert"/></svg></span><div><span class="eyebrow" style="margin:0">Le cœur anti-gaspillage</span><h2 class="title" style="font-size:clamp(26px,3.6vw,38px)">Péremptions & alertes</h2></div></div>
+      <div class="two" style="margin-top:20px">
+        <ul class="bullets">
+          <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>Détection des produits <b>bientôt périmés</b> : filtres <b>3 / 7 / 14 / 30 jours</b>.</span></li>
+          <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span><b>Estimation automatique</b> de la date de péremption selon la catégorie du produit.</span></li>
+          <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span><b>Badge rouge</b> sur les produits déjà périmés.</span></li>
+          <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>Les <b>recettes</b> priorisent les produits proches de la date limite.</span></li>
+        </ul>
+        <div class="card" style="background:#fff7ed;border-color:#fed7aa">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><svg class="icon" style="width:22px;height:22px;color:var(--orange)"><use href="#i-alert"/></svg><b style="color:#9a3412;font-size:16px">3 produits à surveiller</b></div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;background:#fff;padding:11px 13px;border-radius:10px"><div><b style="font-size:14px;color:var(--g900)">Yaourt nature</b><div style="font-size:12px;color:var(--g500)">Réfrigérateur</div></div><b style="color:var(--red);font-size:13px">Demain</b></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;background:#fff;padding:11px 13px;border-radius:10px"><div><b style="font-size:14px;color:var(--g900)">Poulet</b><div style="font-size:12px;color:var(--g500)">Réfrigérateur</div></div><b style="color:var(--orange);font-size:13px">Dans 3 jours</b></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;background:#fff;padding:11px 13px;border-radius:10px"><div><b style="font-size:14px;color:var(--g900)">Fromage</b><div style="font-size:12px;color:var(--g500)">Réfrigérateur</div></div><b style="color:var(--yellow);font-size:13px">Dans 6 jours</b></div>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--g600)">Code couleur :
+            <span style="display:inline-flex;align-items:center;gap:5px"><i style="width:11px;height:11px;border-radius:50%;background:var(--red);display:inline-block"></i>Urgent</span>
+            <span style="display:inline-flex;align-items:center;gap:5px"><i style="width:11px;height:11px;border-radius:50%;background:var(--orange);display:inline-block"></i>Proche</span>
+            <span style="display:inline-flex;align-items:center;gap:5px"><i style="width:11px;height:11px;border-radius:50%;background:var(--yellow);display:inline-block"></i>À suivre</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 · SCAN -->
+  <section class="slide" data-section="2 · Le produit" data-speaker="Hugo">
+    <div class="slide-body">
+      <div class="lead"><span class="tile violet"><svg class="icon"><use href="#i-scan"/></svg></span><div><span class="eyebrow" style="margin:0">Ajout rapide</span><h2 class="title" style="font-size:clamp(26px,3.6vw,38px)">Deux façons de scanner</h2></div></div>
+      <div class="grid g2" style="margin-top:22px">
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:12px"><span class="tile blue" style="width:42px;height:42px"><svg class="icon"><use href="#i-box"/></svg></span><b style="font-size:18px;color:var(--g900)">Code-barres</b></div>
+          <ul class="bullets" style="margin-top:4px">
+            <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>Lecture <b>EAN-13 / 8, UPC</b>.</span></li>
+            <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>Pré-remplissage automatique via <b>Open Food Facts</b> (nom, marque, photo).</span></li>
+            <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>Web : ZXing · Mobile : scanner natif plein écran.</span></li>
+          </ul>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:12px"><span class="tile orange" style="width:42px;height:42px"><svg class="icon"><use href="#i-cam"/></svg></span><b style="font-size:18px;color:var(--g900)">Ticket de caisse (OCR)</b></div>
+          <ul class="bullets" style="margin-top:4px">
+            <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>Photo du ticket → <b>OCR Tesseract.js</b> extrait produits, prix et <b>total</b>.</span></li>
+            <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span><b>Écran de confirmation</b> pour corriger avant validation.</span></li>
+            <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span><b>Ajout en masse</b> des produits + historique des tickets.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 · COLLABORATION -->
+  <section class="slide" data-section="2 · Le produit" data-speaker="Hugo">
+    <div class="slide-body">
+      <div class="lead"><span class="tile cyan"><svg class="icon"><use href="#i-users"/></svg></span><div><span class="eyebrow" style="margin:0">À plusieurs</span><h2 class="title" style="font-size:clamp(26px,3.6vw,38px)">Le foyer partagé</h2></div></div>
+      <div class="grid g3" style="margin-top:22px">
+        <div class="card feat"><div class="tile cyan"><svg class="icon"><use href="#i-users"/></svg></div><div><h3>Foyer multi-membres</h3><p>Rôles <b>owner / admin / editor / viewer</b>, invitations par email ou lien, multi-foyers avec switch.</p></div></div>
+        <div class="card feat"><div class="tile rose"><svg class="icon"><use href="#i-wallet"/></svg></div><div><h3>Dépenses & split</h3><p>Répartition <b>personnelle / égale / personnalisée</b>, tableau des soldes « qui doit combien », remboursements.</p></div></div>
+        <div class="card feat"><div class="tile green"><svg class="icon"><use href="#i-cart"/></svg></div><div><h3>Liste de courses</h3><p>Listes <b>partagées</b>, ajout manuel ou depuis l'inventaire, cocher puis <b>transférer en stock</b>.</p></div></div>
+      </div>
+      <div class="note"><svg class="icon"><use href="#i-bolt"/></svg> Sur mobile, le cochage des courses fonctionne <b style="color:var(--g700);margin:0 4px">hors ligne</b> avec resynchronisation automatique.</div>
+    </div>
+  </section>
+
+  <!-- 11 · BESOIN / CDC -->
+  <section class="slide" data-section="3 · Le besoin" data-speaker="Maëva">
+    <div class="slide-body">
+      <span class="eyebrow">Expression du besoin — cahier des charges</span>
+      <h2 class="title">Du besoin à la priorisation</h2>
+      <div class="grid g4" style="margin-top:22px;margin-bottom:22px">
+        <div class="card" style="text-align:center"><div class="kpi">9</div><div class="kpi-l">Epics</div></div>
+        <div class="card" style="text-align:center"><div class="kpi">56</div><div class="kpi-l">Exigences (F-01 → F-56)</div></div>
+        <div class="card" style="text-align:center"><div class="kpi">15</div><div class="kpi-l">User Stories</div></div>
+        <div class="card" style="text-align:center"><div class="kpi">84</div><div class="kpi-l">Points d'effort</div></div>
+      </div>
+      <div class="moscow">
+        <div class="mo must"><h4><svg class="icon" style="width:18px;height:18px"><use href="#i-check"/></svg> Must</h4><ul><li>Auth complète</li><li>CRUD produits</li><li>Alertes péremption</li><li>Foyer multi-membres</li></ul></div>
+        <div class="mo should"><h4>Should</h4><ul><li>Scan ticket OCR</li><li>Suggestions recettes</li><li>Photos produits</li><li>Multi-foyers & rôles</li></ul></div>
+        <div class="mo could"><h4>Could</h4><ul><li>Split des dépenses</li><li>Liste de courses</li><li>Statistiques</li><li>Mode hors-ligne</li></ul></div>
+        <div class="mo wont"><h4>Won't</h4><ul><li>Notifications push</li><li>Synchro temps réel</li><li>IA reconnaissance image</li><li>Intégration livraison</li></ul></div>
+      </div>
+      <div class="note"><svg class="icon"><use href="#i-bolt"/></svg> Méthode <b style="color:var(--g700);margin:0 4px">MoSCoW</b> — le « Won't » regroupe ce qui n'a pas été finalisé à ce jour.</div>
+    </div>
+  </section>
+
+  <!-- 12 · STACK -->
+  <section class="slide" data-section="3 · Le besoin" data-speaker="Maëva">
+    <div class="slide-body">
+      <span class="eyebrow">Les technologies</span>
+      <h2 class="title">Stack technique</h2>
+      <div class="grid g3" style="margin-top:22px">
+        <div class="card"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span class="tile blue" style="width:36px;height:36px"><svg class="icon"><use href="#i-monitor"/></svg></span><b style="font-size:15px;color:var(--g900)">Frontend web</b></div><p style="font-size:13.5px;color:var(--g600);line-height:1.55">React 18 · Vite 5 · TailwindCSS 3 · React Router 6 · Axios · Lucide React</p></div>
+        <div class="card"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span class="tile green" style="width:36px;height:36px"><svg class="icon"><use href="#i-server"/></svg></span><b style="font-size:15px;color:var(--g900)">Backend</b></div><p style="font-size:13.5px;color:var(--g600);line-height:1.55">Node.js ≥ 18 · Express 4 · Sequelize 6 · JWT · bcryptjs · node-cron · Multer · Tesseract.js</p></div>
+        <div class="card"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span class="tile slate" style="width:36px;height:36px"><svg class="icon"><use href="#i-db"/></svg></span><b style="font-size:15px;color:var(--g900)">Base de données</b></div><p style="font-size:13.5px;color:var(--g600);line-height:1.55">PostgreSQL 15 · 30 tables · migrations & seeders Sequelize</p></div>
+        <div class="card"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span class="tile cyan" style="width:36px;height:36px"><svg class="icon"><use href="#i-phone"/></svg></span><b style="font-size:15px;color:var(--g900)">Mobile</b></div><p style="font-size:13.5px;color:var(--g600);line-height:1.55">Flutter (Dart ≥ 3.12) · Riverpod · Dio · go_router · secure_storage · mobile_scanner</p></div>
+        <div class="card"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span class="tile amber" style="width:36px;height:36px"><svg class="icon"><use href="#i-bolt"/></svg></span><b style="font-size:15px;color:var(--g900)">APIs externes</b></div><p style="font-size:13.5px;color:var(--g600);line-height:1.55">Open Food Facts (produits / code-barres) · API de recettes</p></div>
+        <div class="card"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span class="tile violet" style="width:36px;height:36px"><svg class="icon"><use href="#i-layers"/></svg></span><b style="font-size:15px;color:var(--g900)">DevOps</b></div><p style="font-size:13.5px;color:var(--g600);line-height:1.55">Docker & Docker Compose · GitHub · Codemagic (build iOS)</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 13 · MCD -->
+  <section class="slide" data-section="3 · Le besoin" data-speaker="Maëva">
+    <div class="slide-body">
+      <span class="eyebrow">Modèle de données</span>
+      <h2 class="title">30 tables, 3 entités centrales</h2>
+      <div class="wrap-note" style="justify-content:flex-start;margin:16px 0 20px">
+        <span class="pill"><svg class="icon" style="width:16px;height:16px"><use href="#i-users"/></svg> USER</span>
+        <span class="pill cyan"><svg class="icon" style="width:16px;height:16px"><use href="#i-users"/></svg> HOUSEHOLD</span>
+        <span class="pill amber"><svg class="icon" style="width:16px;height:16px"><use href="#i-box"/></svg> PRODUCT</span>
+      </div>
+      <div class="grid g3">
+        <div class="card"><b style="font-size:13px;color:var(--p700);text-transform:uppercase;letter-spacing:.04em">Utilisateurs & sessions</b><p style="font-size:13px;color:var(--g600);margin-top:6px;line-height:1.5">users · user_sessions · push_tokens · password_resets</p></div>
+        <div class="card"><b style="font-size:13px;color:var(--p700);text-transform:uppercase;letter-spacing:.04em">Foyers & membres</b><p style="font-size:13px;color:var(--g600);margin-top:6px;line-height:1.5">households · household_members · household_invitations</p></div>
+        <div class="card"><b style="font-size:13px;color:var(--p700);text-transform:uppercase;letter-spacing:.04em">Inventaire</b><p style="font-size:13px;color:var(--g600);margin-top:6px;line-height:1.5">locations · product_categories · products · product_tags · barcode_cache</p></div>
+        <div class="card"><b style="font-size:13px;color:var(--p700);text-transform:uppercase;letter-spacing:.04em">Recettes</b><p style="font-size:13px;color:var(--g600);margin-top:6px;line-height:1.5">recipes · recipe_ingredients · recipe_steps · favorite_recipes · cooking_history…</p></div>
+        <div class="card"><b style="font-size:13px;color:var(--p700);text-transform:uppercase;letter-spacing:.04em">Dépenses & courses</b><p style="font-size:13px;color:var(--g600);margin-top:6px;line-height:1.5">expenses · expense_splits · expense_category_budgets · shopping_lists · shopping_items</p></div>
+        <div class="card"><b style="font-size:13px;color:var(--p700);text-transform:uppercase;letter-spacing:.04em">OCR · notifs · stats</b><p style="font-size:13px;color:var(--g600);margin-top:6px;line-height:1.5">receipt_scans · notifications · product_consumption_logs · audit_logs…</p></div>
+      </div>
+      <div class="note"><svg class="icon"><use href="#i-doc"/></svg> Schéma complet haute résolution : <b style="color:var(--g700);margin:0 4px">Documentation/MCD.pdf</b></div>
+    </div>
+  </section>
+
+  <!-- 14 · ARCHITECTURE -->
+  <section class="slide" data-section="4 · La technique" data-speaker="Omar">
+    <div class="slide-body">
+      <span class="eyebrow">Architecture technique</span>
+      <h2 class="title">Client-serveur découplé</h2>
+      <p class="sub">Deux clients, une seule API. Le web et le mobile consomment la même API REST qui centralise la logique métier.</p>
+      <div class="arch" style="margin-top:30px">
+        <div class="col">
+          <div class="node"><span class="tile blue" style="width:38px;height:38px"><svg class="icon"><use href="#i-monitor"/></svg></span><b>Web React</b><span>SPA · Axios</span></div>
+          <div class="node"><span class="tile cyan" style="width:38px;height:38px"><svg class="icon"><use href="#i-phone"/></svg></span><b>Mobile Flutter</b><span>Dio · JWT</span></div>
+        </div>
+        <div class="arrow"><svg class="icon" style="width:26px;height:26px"><use href="#i-arrow"/></svg></div>
+        <div class="node hero"><span class="tile green" style="width:44px;height:44px"><svg class="icon"><use href="#i-server"/></svg></span><b>API REST</b><span>Node · Express · MVC<br>node-cron</span></div>
+        <div class="arrow"><svg class="icon" style="width:26px;height:26px"><use href="#i-arrow"/></svg></div>
+        <div class="node"><span class="tile violet" style="width:44px;height:44px"><svg class="icon"><use href="#i-layers"/></svg></span><b>Sequelize</b><span>ORM · migrations</span></div>
+        <div class="arrow"><svg class="icon" style="width:26px;height:26px"><use href="#i-arrow"/></svg></div>
+        <div class="node"><span class="tile slate" style="width:44px;height:44px"><svg class="icon"><use href="#i-db"/></svg></span><b>PostgreSQL 15</b><span>30 tables</span></div>
+      </div>
+      <div class="wrap-note" style="margin-top:26px">
+        <span class="pill"><svg class="icon" style="width:16px;height:16px"><use href="#i-shield"/></svg> Auth JWT (Bearer)</span>
+        <span class="pill gray"><svg class="icon" style="width:16px;height:16px"><use href="#i-layers"/></svg> Conteneurisé — Docker Compose</span>
+        <span class="pill gray">Réponses normalisées { success, data/message }</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 15 · API -->
+  <section class="slide" data-section="4 · La technique" data-speaker="Omar">
+    <div class="slide-body">
+      <span class="eyebrow">API REST</span>
+      <h2 class="title">Des ressources sous <span class="accent">/api</span></h2>
+      <p class="sub">Protégées par JWT (<code style="font-family:ui-monospace,monospace;background:var(--g100);padding:1px 6px;border-radius:5px;font-size:.9em">Authorization: Bearer</code>) · réponses JSON normalisées.</p>
+      <div class="grid g2" style="margin-top:20px">
+        <table class="t">
+          <tr><td><span class="badge m-post">POST</span></td><td>/api/auth/register · /login</td><td style="color:var(--g500)">Inscription · JWT</td></tr>
+          <tr><td><span class="badge m-crud">CRUD</span></td><td>/api/products</td><td style="color:var(--g500)">Produits (+ filtres)</td></tr>
+          <tr><td><span class="badge m-get">GET</span></td><td>/api/products/expiring</td><td style="color:var(--g500)">Bientôt périmés</td></tr>
+          <tr><td><span class="badge m-get">GET</span></td><td>/api/products/barcode/:code</td><td style="color:var(--g500)">Open Food Facts</td></tr>
+          <tr><td><span class="badge m-crud">CRUD</span></td><td>/api/locations · /categories</td><td style="color:var(--g500)">Emplacements</td></tr>
+        </table>
+        <table class="t">
+          <tr><td><span class="badge m-crud">CRUD</span></td><td>/api/shopping-lists</td><td style="color:var(--g500)">Courses (+ transfert)</td></tr>
+          <tr><td><span class="badge m-post">POST</span></td><td>/api/households · /invite</td><td style="color:var(--g500)">Foyers & invitations</td></tr>
+          <tr><td><span class="badge m-post">POST</span></td><td>/api/scan/receipt · /confirm</td><td style="color:var(--g500)">OCR ticket</td></tr>
+          <tr><td><span class="badge m-get">GET</span></td><td>/api/recipes/...</td><td style="color:var(--g500)">Recettes anti-gaspi</td></tr>
+          <tr><td><span class="badge m-post">POST</span></td><td>/api/expenses/...</td><td style="color:var(--g500)">Dépenses & split</td></tr>
+        </table>
+      </div>
+      <div class="note"><svg class="icon"><use href="#i-doc"/></svg> Architecture backend <b style="color:var(--g700);margin:0 4px">MVC stricte</b> : models · controllers · routes · middlewares.</div>
+    </div>
+  </section>
+
+  <!-- 16 · OCR -->
+  <section class="slide" data-section="4 · La technique" data-speaker="Omar">
+    <div class="slide-body">
+      <span class="eyebrow">Un choix technique argumenté</span>
+      <h2 class="title">OCR : pourquoi Tesseract.js ?</h2>
+      <div class="two" style="margin-top:20px;grid-template-columns:1.25fr 1fr">
+        <table class="t" style="font-size:13.5px">
+          <tr><th>Solution</th><th>Coût</th><th>Offline</th><th>Précision FR</th></tr>
+          <tr class="hi"><td><b>Tesseract.js</b> ✔</td><td class="yes">Gratuit</td><td class="yes">Oui</td><td class="mid">70–80 %</td></tr>
+          <tr><td>Google Vision</td><td class="mid">Tier limité</td><td class="no">Non</td><td class="yes">95 %+</td></tr>
+          <tr><td>OpenAI GPT-4o</td><td class="no">Payant</td><td class="no">Non</td><td class="yes">95 %+</td></tr>
+          <tr><td>AWS Textract</td><td class="no">Payant</td><td class="no">Non</td><td class="yes">90 %+</td></tr>
+          <tr><td>Mistral Pixtral</td><td class="mid">Tier limité</td><td class="no">Non</td><td class="mid">85 %+</td></tr>
+        </table>
+        <div>
+          <ul class="bullets" style="font-size:15px">
+            <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span><b>Coût nul</b> — pas de carte bancaire, pas de quota.</span></li>
+            <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span><b>100 % local</b> — cohérent avec Docker, les tickets ne quittent jamais la machine (confidentialité).</span></li>
+            <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>Intégration <b>triviale</b> (npm) + support <b>français natif</b>.</span></li>
+          </ul>
+          <div style="margin-top:14px;padding:12px 14px;border-radius:12px;background:var(--p50);border:1px solid var(--p100);font-size:13px;color:var(--g700);line-height:1.5">La précision est compensée par un <b>écran de confirmation</b> ; la logique est isolée pour permettre une <b>migration cloud</b> ultérieure.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 17 · MOBILE -->
+  <section class="slide" data-section="4 · La technique" data-speaker="Omar">
+    <div class="slide-body">
+      <div class="lead"><span class="tile cyan"><svg class="icon"><use href="#i-phone"/></svg></span><div><span class="eyebrow" style="margin:0">Un livrable à part entière</span><h2 class="title" style="font-size:clamp(26px,3.6vw,38px)">L'application mobile Flutter</h2></div></div>
+      <div class="two" style="margin-top:16px;grid-template-columns:1fr 260px">
+        <div>
+          <p style="font-size:16px;color:var(--g600);line-height:1.55;margin-bottom:16px">Exigée par le brief au même titre que le web, elle est <b style="color:var(--p700)">développée par l'équipe à trois</b> comme client natif de l'API, pensée pour les usages en mobilité.</p>
+          <div class="grid g2" style="gap:12px">
+            <div class="card" style="padding:15px"><b style="font-size:13.5px;color:var(--g900);display:block;margin-bottom:5px">🧱 Architecture</b><p style="font-size:12.5px;color:var(--g600);line-height:1.5">Découpe par features · Riverpod · go_router · Material 3 clair/sombre persisté</p></div>
+            <div class="card" style="padding:15px"><b style="font-size:13.5px;color:var(--g900);display:block;margin-bottom:5px">✅ Épics livrées</b><p style="font-size:12.5px;color:var(--g600);line-height:1.5">Auth · Dashboard · Inventaire complet · Péremptions · Courses · Scanner · Profil</p></div>
+            <div class="card" style="padding:15px"><b style="font-size:13.5px;color:var(--g900);display:block;margin-bottom:5px">🧪 Qualité</b><p style="font-size:12.5px;color:var(--g600);line-height:1.5"><b>flutter analyze</b> sans avertissement · <b>72 tests</b> sur 8 fichiers</p></div>
+            <div class="card" style="padding:15px"><b style="font-size:13.5px;color:var(--g900);display:block;margin-bottom:5px">⭐ Apports uniques</b><p style="font-size:12.5px;color:var(--g600);line-height:1.5">Scanner natif plein écran · courses <b>hors-ligne</b> + resync · thème sombre · haptique</p></div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:center">
+          <div class="phone"><div class="screen">
+            <div class="ph-top"><svg class="icon"><use href="#i-fridge"/></svg><b>MySmartFridge</b></div>
+            <div class="ph-body">
+              <div class="ph-card"><span class="pt" style="background:var(--fridge)"><svg class="icon"><use href="#i-box"/></svg></span><div><div class="l1">Lait demi-écrémé</div><div class="l2">Réfrigérateur</div></div><span class="ph-tag" style="background:#fef2f2;color:#b91c1c">Demain</span></div>
+              <div class="ph-card"><span class="pt" style="background:var(--freezer)"><svg class="icon"><use href="#i-snow"/></svg></span><div><div class="l1">Petits pois</div><div class="l2">Congélateur</div></div><span class="ph-tag" style="background:#ecfdf5;color:#047857">2 mois</span></div>
+              <div class="ph-card"><span class="pt" style="background:var(--pantry)"><svg class="icon"><use href="#i-box"/></svg></span><div><div class="l1">Pâtes</div><div class="l2">Placard</div></div><span class="ph-tag" style="background:#ecfdf5;color:#047857">1 an</span></div>
+              <div class="ph-card"><span class="pt" style="background:var(--fridge)"><svg class="icon"><use href="#i-box"/></svg></span><div><div class="l1">Yaourts</div><div class="l2">Réfrigérateur</div></div><span class="ph-tag" style="background:#fff7ed;color:#9a3412">3 j</span></div>
+              <div class="ph-card"><span class="pt" style="background:var(--freezer)"><svg class="icon"><use href="#i-snow"/></svg></span><div><div class="l1">Glace vanille</div><div class="l2">Congélateur</div></div><span class="ph-tag" style="background:#ecfdf5;color:#047857">6 mois</span></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 18 · GESTION DE PROJET -->
+  <section class="slide" data-section="5 · La gestion" data-speaker="Maëva">
+    <div class="slide-body">
+      <span class="eyebrow">Gestion de projet</span>
+      <h2 class="title">Agile & outillé</h2>
+      <div class="two" style="margin-top:24px">
+        <div>
+          <ul class="bullets">
+            <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>Méthode <b>Agile</b> : sprints + priorisation <b>MoSCoW</b>.</span></li>
+            <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>Découpage <b>Epics → User Stories</b> avec critères d'acceptabilité.</span></li>
+            <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>Suivi sous forme de <b>tickets</b>, colonnes par membre.</span></li>
+          </ul>
+        </div>
+        <div class="grid g2">
+          <div class="card feat" style="padding:16px"><div class="tile slate" style="width:40px;height:40px"><svg class="icon"><use href="#i-git"/></svg></div><div><h3>GitHub</h3><p>Versioning, branches par membre</p></div></div>
+          <div class="card feat" style="padding:16px"><div class="tile blue" style="width:40px;height:40px"><svg class="icon"><use href="#i-list"/></svg></div><div><h3>Trello</h3><p>Backlog & suivi des tickets</p></div></div>
+          <div class="card feat" style="padding:16px"><div class="tile indigo" style="width:40px;height:40px"><svg class="icon"><use href="#i-users"/></svg></div><div><h3>Discord</h3><p>Communication d'équipe</p></div></div>
+          <div class="card feat" style="padding:16px"><div class="tile slate" style="width:40px;height:40px"><svg class="icon"><use href="#i-doc"/></svg></div><div><h3>Notion</h3><p>Partage de la documentation</p></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 19 · PLANNING -->
+  <section class="slide" data-section="5 · La gestion" data-speaker="Maëva">
+    <div class="slide-body">
+      <span class="eyebrow">Le fil rouge du projet</span>
+      <h2 class="title">De janvier à juillet 2026</h2>
+      <div class="timeline" style="margin-top:34px">
+        <div class="tl done"><div class="top"><div class="line"></div><div class="dot" style="background:var(--p600);box-shadow:0 0 0 2px var(--p200)"></div></div><div class="body"><b>Lancement</b><div class="per" style="color:var(--red)">05/01/2026</div><p>Constitution des groupes, choix du sujet, brief.</p></div></div>
+        <div class="tl done"><div class="top"><div class="line"></div><div class="dot"></div></div><div class="body"><b>Janv.–Fév.</b><div class="per">Socle</div><p>Auth JWT, CRUD produits, alertes de péremption.</p></div></div>
+        <div class="tl done"><div class="top"><div class="line"></div><div class="dot"></div></div><div class="body"><b>Mars</b><div class="per">Foyer</div><p>Multi-membres, invitations, rôles, refonte API.</p></div></div>
+        <div class="tl done"><div class="top"><div class="line"></div><div class="dot" style="background:var(--p600);box-shadow:0 0 0 2px var(--p200)"></div></div><div class="body"><b>Soutenance interm.</b><div class="per" style="color:var(--red)">24/04/2026</div><p>Point d'étape — présentation de 10 min.</p></div></div>
+        <div class="tl done"><div class="top"><div class="line"></div><div class="dot"></div></div><div class="body"><b>Avril–Mai</b><div class="per">Contenu</div><p>Scan OCR, recettes, photos, code-barres.</p></div></div>
+        <div class="tl done"><div class="top"><div class="line"></div><div class="dot"></div></div><div class="body"><b>Juin</b><div class="per">Collab & mobile</div><p>Dépenses/split, courses, stats, app mobile.</p></div></div>
+        <div class="tl"><div class="top"><div class="line" style="right:50%"></div><div class="dot" style="background:var(--red);box-shadow:0 0 0 2px #fecaca"></div></div><div class="body"><b>Soutenance finale</b><div class="per" style="color:var(--red)">06/07/2026</div><p>25 min de présentation + 5 min de Q/R.</p></div></div>
+      </div>
+      <div class="note"><svg class="icon"><use href="#i-target"/></svg> Nous y sommes : <b style="color:var(--g700);margin:0 4px">soutenance finale du 6 juillet 2026</b>.</div>
+    </div>
+  </section>
+
+  <!-- 20 · CONFORMITÉ -->
+  <section class="slide" data-section="5 · La gestion" data-speaker="Maëva">
+    <div class="slide-body">
+      <span class="eyebrow">Conformité au brief</span>
+      <h2 class="title">Où en est-on ?</h2>
+      <div class="grid g2" style="margin-top:22px">
+        <div class="card feat" style="border-color:#a7f3d0"><div class="tile green"><svg class="icon"><use href="#i-check"/></svg></div><div><h3>Must Have — couvert ✔</h3><p>100 % livré par le web. Mobile : tout sauf le foyer multi-membres.</p></div></div>
+        <div class="card feat" style="border-color:#fed7aa"><div class="tile orange"><svg class="icon"><use href="#i-alert"/></svg></div><div><h3>Should Have — partiel ~</h3><p>OCR + recettes + photos couverts. Seul absent partout : les <b>notifications push</b>.</p></div></div>
+        <div class="card feat" style="border-color:#bfdbfe"><div class="tile blue"><svg class="icon"><use href="#i-check"/></svg></div><div><h3>Could Have — couvert ✔</h3><p>Split + courses + stats (web) ; hors-ligne partiel côté mobile.</p></div></div>
+        <div class="card feat" style="border-color:#cffafe"><div class="tile cyan"><svg class="icon"><use href="#i-phone"/></svg></div><div><h3>Mobile (obligatoire) — livré ✔</h3><p>Les deux applications exigées par le brief, <b>web et mobile</b>, sont opérationnelles.</p></div></div>
+      </div>
+      <div class="note"><svg class="icon"><use href="#i-alert"/></svg> Principal reste-à-faire : <b style="color:var(--g700);margin:0 4px">notifications push</b> — contrainte HTTPS + FCM identifiée dès le cahier des charges.</div>
+    </div>
+  </section>
+
+  <!-- 21 · BILAN -->
+  <section class="slide" data-section="6 · Le bilan" data-speaker="Tous">
+    <div class="slide-body">
+      <span class="eyebrow">Bilan</span>
+      <h2 class="title">Réalisations & difficultés</h2>
+      <div class="two" style="margin-top:22px">
+        <div class="card" style="border-color:#a7f3d0;background:#f0fdf9">
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px"><span class="pill green"><svg class="icon" style="width:15px;height:15px"><use href="#i-check"/></svg> Livré</span></div>
+          <ul class="bullets" style="font-size:14.5px">
+            <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>Web React complet : tous les <b>Must</b> + majorité des Should/Could.</span></li>
+            <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>API robuste : <b>JWT, MVC, 30 tables</b>, migrations, OCR, proxy OFF.</span></li>
+            <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>App mobile Flutter : <b>scanner</b> code-barres, courses <b>hors-ligne</b>, thème sombre.</span></li>
+            <li><span class="chk"><svg class="icon"><use href="#i-check"/></svg></span><span>Documentation fournie : CDC, US, MCD, doc API, conformité.</span></li>
+          </ul>
+        </div>
+        <div class="card" style="border-color:#fed7aa;background:#fffdf7">
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px"><span class="pill amber"><svg class="icon" style="width:15px;height:15px"><use href="#i-alert"/></svg> Difficultés</span></div>
+          <ul class="bullets" style="font-size:14.5px">
+            <li><span class="chk" style="background:#fff7ed;color:var(--orange)"><svg class="icon"><use href="#i-bolt"/></svg></span><span><b>OCR</b> : arbitrage coût / précision / confidentialité → Tesseract.js.</span></li>
+            <li><span class="chk" style="background:#fff7ed;color:var(--orange)"><svg class="icon"><use href="#i-bolt"/></svg></span><span><b>Flutter</b> : montée en compétence de toute l'équipe sur le mobile.</span></li>
+            <li><span class="chk" style="background:#fff7ed;color:var(--orange)"><svg class="icon"><use href="#i-bolt"/></svg></span><span><b>Temps réel</b> courses : pas de WebSocket → pull + file offline.</span></li>
+            <li><span class="chk" style="background:#fff7ed;color:var(--orange)"><svg class="icon"><use href="#i-bolt"/></svg></span><span><b>Multi-foyer mobile</b> : géré en mono-foyer côté app.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 22 · PERSPECTIVES -->
+  <section class="slide" data-section="6 · Le bilan" data-speaker="Tous">
+    <div class="slide-body">
+      <span class="eyebrow">Regard critique</span>
+      <h2 class="title">Ce qui reste à faire</h2>
+      <div class="two" style="margin-top:20px">
+        <div class="card" style="border-color:#fed7aa;background:#fffdf7">
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px"><span class="pill amber"><svg class="icon" style="width:15px;height:15px"><use href="#i-alert"/></svg> À finaliser (web & mobile)</span></div>
+          <ul class="bullets" style="font-size:13.5px;gap:10px">
+            <li><span class="chk" style="background:#fff7ed;color:var(--orange)"><svg class="icon"><use href="#i-alert"/></svg></span><span><b>Notifications de péremption</b> (push / e-mail) — local mobile puis <b>FCM + job CRON</b> serveur.</span></li>
+            <li><span class="chk" style="background:#fff7ed;color:var(--orange)"><svg class="icon"><use href="#i-alert"/></svg></span><span><b>Synchro temps réel</b> de la liste de courses (WebSocket / SSE).</span></li>
+            <li><span class="chk" style="background:#fff7ed;color:var(--orange)"><svg class="icon"><use href="#i-alert"/></svg></span><span><b>Date d'ouverture</b> d'un produit (durée réduite) — donnée en base non exploitée.</span></li>
+            <li><span class="chk" style="background:#fff7ed;color:var(--orange)"><svg class="icon"><use href="#i-alert"/></svg></span><span><b>Filtre catégorie</b> & <b>tri par quantité</b> dans l'inventaire.</span></li>
+          </ul>
+        </div>
+        <div class="card" style="border-color:#cffafe;background:#f2fdff">
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px"><span class="pill cyan"><svg class="icon" style="width:15px;height:15px"><use href="#i-phone"/></svg> À porter sur le mobile</span></div>
+          <ul class="bullets" style="font-size:13.5px;gap:10px">
+            <li><span class="chk" style="background:#ecfeff;color:#0e7490"><svg class="icon"><use href="#i-arrow"/></svg></span><span><b>Recettes</b> : suggestions anti-gaspi, détail, favoris, « j'ai cuisiné ».</span></li>
+            <li><span class="chk" style="background:#ecfeff;color:#0e7490"><svg class="icon"><use href="#i-arrow"/></svg></span><span><b>Dépenses & budgets</b> : split, tableau des soldes, remboursements.</span></li>
+            <li><span class="chk" style="background:#ecfeff;color:#0e7490"><svg class="icon"><use href="#i-arrow"/></svg></span><span><b>Foyer multi-membres</b> (mobile mono-foyer) & <b>statistiques</b>.</span></li>
+            <li><span class="chk" style="background:#ecfeff;color:#0e7490"><svg class="icon"><use href="#i-arrow"/></svg></span><span><b>OCR ticket</b> & <b>reset password</b> (deep link) — le backend existe déjà.</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="note"><svg class="icon"><use href="#i-rocket"/></svg> Bonne nouvelle : <b style="color:var(--g700);margin:0 4px">l'API et la base couvrent déjà ces besoins</b> — le reste-à-faire est surtout côté interface mobile.</div>
+    </div>
+  </section>
+
+  <!-- 23 · CONCLUSION -->
+  <section class="slide" data-section="6 · Le bilan" data-speaker="Tous">
+    <div class="slide-body">
+      <span class="eyebrow">Conclusion</span>
+      <h2 class="title">Objectif atteint</h2>
+      <p class="sub" style="max-width:900px">Une solution <b class="accent">complète et collaborative</b> de gestion des stocks alimentaires, pensée pour <b class="accent">réduire le gaspillage</b>.</p>
+      <div class="grid g3" style="margin-top:26px">
+        <div class="card" style="text-align:center"><div class="kpi" style="color:var(--green)">2</div><div class="kpi-l">applications livrées : web + mobile</div></div>
+        <div class="card" style="text-align:center"><div class="kpi">100 %</div><div class="kpi-l">des fonctionnalités « Must Have »</div></div>
+        <div class="card" style="text-align:center"><div class="kpi" style="color:#6d28d9">30</div><div class="kpi-l">tables · API REST découplée & évolutive</div></div>
+      </div>
+      <p style="margin-top:24px;font-size:16px;color:var(--g600);line-height:1.55;max-width:900px">Les <b>deux livrables exigés</b> — application web et application mobile — sont opérationnels. Le principal reste-à-faire, les <b>notifications push</b>, dépend d'une infrastructure (HTTPS + FCM) que le socle technique découplé est déjà prêt à accueillir.</p>
+    </div>
+  </section>
+
+  <!-- 24 · MERCI -->
+  <section class="slide closing" data-noappbar>
+    <div>
+      <div style="display:flex;justify-content:center;margin-bottom:22px"><div class="ring" style="width:72px;height:72px;border-radius:20px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);display:grid;place-items:center"><svg class="icon" style="width:40px;height:40px;color:#fff"><use href="#i-fridge"/></svg></div></div>
+      <h2>Merci !</h2>
+      <p>Des questions ? 🧊</p>
+      <div class="repo"><svg class="icon" style="width:18px;height:18px"><use href="#i-git"/></svg> github.com/MAEVAFRA/MySmartFridge</div>
+      <div style="margin-top:26px;color:#bfdbfe;font-size:14.5px;font-weight:500">Omar Amri · Maëva Taïte · Hugo Maréchaux — Ynov B3 Informatique</div>
+    </div>
+  </section>
+
+</div>
+
+<div class="kbd"><kbd>←</kbd><kbd>→</kbd> naviguer · <kbd>F</kbd> plein écran</div>
+<div class="hud">
+  <button class="navbtn" id="nav-prev" title="Précédent"><svg class="icon"><use href="#i-arrow-l"/></svg></button>
+  <div class="hud-count" id="hud-count">1 / 24</div>
+  <button class="navbtn" id="nav-next" title="Suivant"><svg class="icon"><use href="#i-arrow"/></svg></button>
+</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const total = slides.length;
+  let cur = 0;
+  const secEl = document.getElementById('bar-section');
+  const spkEl = document.getElementById('bar-speaker');
+  const countEl = document.getElementById('bar-count');
+  const pbar = document.getElementById('pbar');
+  const hudCount = document.getElementById('hud-count');
+
+  function render(){
+    slides.forEach((s,i)=> s.classList.toggle('active', i===cur));
+    const s = slides[cur];
+    const bare = s.hasAttribute('data-noappbar');
+    document.body.classList.toggle('bare', bare);
+    if(!bare){
+      secEl.textContent = s.dataset.section || '';
+      const spk = s.dataset.speaker;
+      if(spk){ spkEl.textContent = '🎤 ' + spk; spkEl.setAttribute('data-who', spk); spkEl.style.display=''; }
+      else { spkEl.style.display='none'; }
+    }
+    countEl.textContent = (cur+1) + ' / ' + total;
+    hudCount.textContent = (cur+1) + ' / ' + total;
+    pbar.style.width = ((cur+1)/total*100) + '%';
+    if(history.replaceState) history.replaceState(null,'', '#s'+(cur+1));
+  }
+  function go(n){ cur = Math.max(0, Math.min(total-1, n)); render(); }
+  const next = ()=>go(cur+1), prev = ()=>go(cur-1);
+
+  document.addEventListener('keydown', e=>{
+    if(['ArrowRight','PageDown',' '].includes(e.key)){ e.preventDefault(); next(); }
+    else if(['ArrowLeft','PageUp'].includes(e.key)){ e.preventDefault(); prev(); }
+    else if(e.key==='Home'){ e.preventDefault(); go(0); }
+    else if(e.key==='End'){ e.preventDefault(); go(total-1); }
+    else if(e.key==='f'||e.key==='F'){ if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();}else{document.exitFullscreen&&document.exitFullscreen();} }
+  });
+  document.getElementById('nav-prev').addEventListener('click', prev);
+  document.getElementById('nav-next').addEventListener('click', next);
+
+  let tx=0, ty=0;
+  const deck = document.getElementById('deck');
+  deck.addEventListener('touchstart', e=>{ tx=e.changedTouches[0].clientX; ty=e.changedTouches[0].clientY; }, {passive:true});
+  deck.addEventListener('touchend', e=>{
+    const dx=e.changedTouches[0].clientX-tx, dy=e.changedTouches[0].clientY-ty;
+    if(Math.abs(dx)>60 && Math.abs(dx)>Math.abs(dy)){ dx<0 ? next() : prev(); }
+  }, {passive:true});
+
+  const m = location.hash.match(/s(\d+)/);
+  if(m){ cur = Math.min(total-1, Math.max(0, parseInt(m[1])-1)); }
+  render();
+</script>
+</body>
+</html>
