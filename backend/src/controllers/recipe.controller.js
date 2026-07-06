@@ -13,6 +13,7 @@ const {
   ProductCategory,
   User,
 } = require('../models');
+const { logAudit } = require('../utils/audit');
 
 // ─── Matching ingrédient ↔ produit ───────────────────────────────
 // On normalise (minuscules, sans accents, sans ponctuation) puis on
@@ -365,6 +366,13 @@ exports.cook = async (req, res) => {
 
     await t.commit();
 
+    await logAudit(req, {
+      action: 'cook',
+      entity_type: 'recipe',
+      entity_id: recipe.id,
+      new_values: { title: recipe.title, servings_made: history.servings_made, consumed_count: consumedSummary.length },
+    });
+
     res.status(201).json({
       message: 'Recette cuisinée 🍳',
       history_id: history.id,
@@ -375,6 +383,198 @@ exports.cook = async (req, res) => {
   } catch (error) {
     await t.rollback();
     console.error('Erreur cook recipe:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+// ─── POST /api/recipes ────────────────────────────────────────────
+exports.create = async (req, res) => {
+  try {
+    const household_id = req.householdId;
+    const {
+      title, description, image_url, prep_time_minutes, cook_time_minutes, ready_in_minutes,
+      servings, difficulty, diet_tags, allergens, cuisine, calories_per_serving, instructions,
+      ingredients = [], steps = [],
+    } = req.body;
+
+    if (!title || !String(title).trim()) {
+      return res.status(400).json({ message: 'Le titre de la recette est requis' });
+    }
+
+    const id = `custom-${household_id}-${Date.now()}`;
+
+    const recipe = await Recipe.create({
+      id,
+      source: 'custom',
+      is_custom: true,
+      title: String(title).trim(),
+      description,
+      image_url,
+      prep_time_minutes,
+      cook_time_minutes,
+      ready_in_minutes: ready_in_minutes || (prep_time_minutes || 0) + (cook_time_minutes || 0) || null,
+      servings: servings || 4,
+      difficulty: difficulty || 'facile',
+      diet_tags,
+      allergens,
+      cuisine,
+      calories_per_serving,
+      instructions,
+      created_by: req.user.id,
+      household_id,
+    });
+
+    if (ingredients.length > 0) {
+      await RecipeIngredient.bulkCreate(
+        ingredients.filter((i) => String(i.name || '').trim()).map((ing, index) => ({
+          recipe_id: id,
+          name: String(ing.name).trim(),
+          amount: ing.amount != null ? parseFloat(ing.amount) : null,
+          unit: ing.unit || null,
+          is_optional: !!ing.is_optional,
+          display_order: index,
+        }))
+      );
+    }
+
+    if (steps.length > 0) {
+      await RecipeStep.bulkCreate(
+        steps.filter((s) => String(s.description || '').trim()).map((step, index) => ({
+          recipe_id: id,
+          step_number: index + 1,
+          title: step.title || null,
+          description: String(step.description).trim(),
+          duration_minutes: step.duration_minutes || null,
+        }))
+      );
+    }
+
+    await logAudit(req, {
+      action: 'create',
+      entity_type: 'recipe',
+      entity_id: id,
+      new_values: { title: recipe.title, servings: recipe.servings, difficulty: recipe.difficulty },
+    });
+
+    const created = await Recipe.findOne({ where: { id }, include: includeContent });
+    res.status(201).json(created);
+  } catch (error) {
+    console.error('Erreur create recipe:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+// ─── PUT /api/recipes/:id ─────────────────────────────────────────
+exports.update = async (req, res) => {
+  try {
+    const household_id = req.householdId;
+
+    const recipe = await Recipe.findOne({
+      where: { id: req.params.id, household_id, is_custom: true },
+    });
+    if (!recipe) return res.status(404).json({ message: 'Recette non trouvée ou non modifiable' });
+
+    const old_values = { title: recipe.title, servings: recipe.servings, difficulty: recipe.difficulty };
+
+    const {
+      title, description, image_url, prep_time_minutes, cook_time_minutes, ready_in_minutes,
+      servings, difficulty, diet_tags, allergens, cuisine, calories_per_serving, instructions,
+      ingredients, steps,
+    } = req.body;
+
+    if (title !== undefined && !String(title).trim()) {
+      return res.status(400).json({ message: 'Le titre ne peut pas être vide' });
+    }
+
+    const updates = {};
+    if (title !== undefined)                updates.title = String(title).trim();
+    if (description !== undefined)          updates.description = description;
+    if (image_url !== undefined)            updates.image_url = image_url;
+    if (prep_time_minutes !== undefined)    updates.prep_time_minutes = prep_time_minutes;
+    if (cook_time_minutes !== undefined)    updates.cook_time_minutes = cook_time_minutes;
+    if (ready_in_minutes !== undefined)     updates.ready_in_minutes = ready_in_minutes;
+    if (servings !== undefined)             updates.servings = servings;
+    if (difficulty !== undefined)           updates.difficulty = difficulty;
+    if (diet_tags !== undefined)            updates.diet_tags = diet_tags;
+    if (allergens !== undefined)            updates.allergens = allergens;
+    if (cuisine !== undefined)              updates.cuisine = cuisine;
+    if (calories_per_serving !== undefined) updates.calories_per_serving = calories_per_serving;
+    if (instructions !== undefined)         updates.instructions = instructions;
+
+    await recipe.update(updates);
+
+    if (Array.isArray(ingredients)) {
+      await RecipeIngredient.destroy({ where: { recipe_id: recipe.id } });
+      if (ingredients.length > 0) {
+        await RecipeIngredient.bulkCreate(
+          ingredients.filter((i) => String(i.name || '').trim()).map((ing, index) => ({
+            recipe_id: recipe.id,
+            name: String(ing.name).trim(),
+            amount: ing.amount != null ? parseFloat(ing.amount) : null,
+            unit: ing.unit || null,
+            is_optional: !!ing.is_optional,
+            display_order: index,
+          }))
+        );
+      }
+    }
+
+    if (Array.isArray(steps)) {
+      await RecipeStep.destroy({ where: { recipe_id: recipe.id } });
+      if (steps.length > 0) {
+        await RecipeStep.bulkCreate(
+          steps.filter((s) => String(s.description || '').trim()).map((step, index) => ({
+            recipe_id: recipe.id,
+            step_number: index + 1,
+            title: step.title || null,
+            description: String(step.description).trim(),
+            duration_minutes: step.duration_minutes || null,
+          }))
+        );
+      }
+    }
+
+    await logAudit(req, {
+      action: 'update',
+      entity_type: 'recipe',
+      entity_id: recipe.id,
+      old_values,
+      new_values: { title: recipe.title, servings: recipe.servings, difficulty: recipe.difficulty },
+    });
+
+    const updated = await Recipe.findOne({ where: { id: recipe.id }, include: includeContent });
+    res.json(updated);
+  } catch (error) {
+    console.error('Erreur update recipe:', error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+// ─── DELETE /api/recipes/:id ──────────────────────────────────────
+exports.delete = async (req, res) => {
+  try {
+    const household_id = req.householdId;
+
+    const recipe = await Recipe.findOne({
+      where: { id: req.params.id, household_id, is_custom: true },
+    });
+    if (!recipe) return res.status(404).json({ message: 'Recette non trouvée ou non supprimable' });
+
+    await logAudit(req, {
+      action: 'delete',
+      entity_type: 'recipe',
+      entity_id: recipe.id,
+      old_values: { title: recipe.title },
+    });
+
+    await RecipeIngredient.destroy({ where: { recipe_id: recipe.id } });
+    await RecipeStep.destroy({ where: { recipe_id: recipe.id } });
+    await FavoriteRecipe.destroy({ where: { recipe_id: recipe.id } });
+    await recipe.destroy();
+
+    res.json({ message: 'Recette supprimée' });
+  } catch (error) {
+    console.error('Erreur delete recipe:', error);
     res.status(500).json({ message: 'Erreur serveur', error: error.message });
   }
 };

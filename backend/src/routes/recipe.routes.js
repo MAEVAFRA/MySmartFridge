@@ -22,4 +22,9 @@ router.delete('/:id/favorite', recipeController.removeFavorite);
 // Marquer comme cuisinée (décrémente le stock)
 router.post('/:id/cook', recipeController.cook);
 
+// Recettes personnalisées (CRUD)
+router.post('/',    recipeController.create);
+router.put('/:id',  recipeController.update);
+router.delete('/:id', recipeController.delete);
+
 module.exports = router;
