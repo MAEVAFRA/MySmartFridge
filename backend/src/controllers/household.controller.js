@@ -7,6 +7,7 @@ const {
   Location,
   NotifSettings,
 } = require('../models');
+const { logAudit } = require('../utils/audit');
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
@@ -188,6 +189,14 @@ exports.create = async (req, res) => {
       { household_id: household.id, name: 'Placard', type: 'pantry', icon: '🗄️', color: '#8b5cf6', display_order: 2, is_default: false },
     ]);
 
+    await logAudit(req, {
+      action: 'create',
+      entity_type: 'household',
+      entity_id: household.id,
+      household_id: household.id,
+      new_values: { name: household.name, currency: household.currency },
+    });
+
     res.status(201).json({
       message: 'Foyer créé avec succès',
       household: {
@@ -225,7 +234,18 @@ exports.update = async (req, res) => {
       return res.status(404).json({ message: 'Foyer non trouvé' });
     }
 
+    const old_values = { name: household.name, currency: household.currency, monthly_budget: household.monthly_budget };
+
     await household.update({ name, currency, monthly_budget });
+
+    await logAudit(req, {
+      action: 'update',
+      entity_type: 'household',
+      entity_id: household.id,
+      household_id: household.id,
+      old_values,
+      new_values: { name: household.name, currency: household.currency, monthly_budget: household.monthly_budget },
+    });
 
     res.json({
       message: 'Foyer mis à jour',
@@ -286,6 +306,14 @@ exports.inviteByEmail = async (req, res) => {
       role,
       token: generateToken(),
       expires_at: new Date(Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
+    });
+
+    await logAudit(req, {
+      action: 'create',
+      entity_type: 'household_member',
+      entity_id: invitation.id,
+      household_id: householdId,
+      new_values: { email: invitation.email, role: invitation.role },
     });
 
     res.status(201).json({
@@ -431,6 +459,14 @@ exports.removeMember = async (req, res) => {
       }
     }
 
+    await logAudit(req, {
+      action: 'delete',
+      entity_type: 'household_member',
+      entity_id: targetMember.id,
+      household_id: householdId,
+      old_values: { user_id: targetMember.user_id, role: targetMember.role },
+    });
+
     await targetMember.destroy();
 
     res.json({ message: 'Membre retiré avec succès' });
@@ -462,6 +498,14 @@ exports.leaveHousehold = async (req, res) => {
         return res.status(400).json({ message: 'Vous ne pouvez pas quitter le foyer en étant le dernier propriétaire' });
       }
     }
+
+    await logAudit(req, {
+      action: 'delete',
+      entity_type: 'household_member',
+      entity_id: member.id,
+      household_id: householdId,
+      old_values: { user_id: member.user_id, role: member.role },
+    });
 
     await member.destroy();
 

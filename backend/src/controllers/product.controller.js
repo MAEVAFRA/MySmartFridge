@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { Product, Location, ProductCategory, ProductConsumptionLog } = require('../models');
+const { logAudit } = require('../utils/audit');
 
 // Durée de conservation estimée (jours) selon la catégorie et le type
 // d'emplacement : au congélateur on privilégie avg_shelf_days_freezer.
@@ -194,6 +195,13 @@ exports.create = async (req, res) => {
       ],
     });
 
+    await logAudit(req, {
+      action: 'create',
+      entity_type: 'product',
+      entity_id: product.id,
+      new_values: { name: product.name, quantity: product.quantity, unit: product.unit, price: product.price, expires_at: product.expires_at },
+    });
+
     res.status(201).json(full);
   } catch (error) {
     console.error('Erreur create product:', error);
@@ -212,8 +220,18 @@ exports.update = async (req, res) => {
 
     if (!product) return res.status(404).json({ message: 'Produit non trouvé' });
 
+    const old_values = { name: product.name, quantity: product.quantity, unit: product.unit, price: product.price, expires_at: product.expires_at };
+
     const { name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price, image_url } = req.body;
     await product.update({ name, quantity, unit, expires_at, barcode, notes, location_id, category_id, brand, price, image_url });
+
+    await logAudit(req, {
+      action: 'update',
+      entity_type: 'product',
+      entity_id: product.id,
+      old_values,
+      new_values: { name: product.name, quantity: product.quantity, unit: product.unit, price: product.price, expires_at: product.expires_at },
+    });
 
     const updated = await Product.findByPk(product.id, {
       include: [
@@ -259,6 +277,13 @@ exports.delete = async (req, res) => {
         logged_at: new Date(),
       });
     }
+
+    await logAudit(req, {
+      action: 'delete',
+      entity_type: 'product',
+      entity_id: product.id,
+      old_values: { name: product.name, quantity: product.quantity, unit: product.unit },
+    });
 
     res.json({ message: 'Produit supprimé' });
   } catch (error) {

@@ -146,6 +146,12 @@ NotifSettingsModel.belongsTo(User, { foreignKey: 'user_id' });
 Household.hasMany(ProductConsumptionLogModel, { foreignKey: 'household_id', as: 'consumptionLogs' });
 Household.hasMany(MonthlyStatsSnapshotModel,  { foreignKey: 'household_id', as: 'monthlyStats' });
 
+// AuditLog (historique des ajouts/modifications/suppressions)
+Household.hasMany(AuditLogModel, { foreignKey: 'household_id', as: 'auditLogs' });
+AuditLogModel.belongsTo(Household, { foreignKey: 'household_id' });
+User.hasMany(AuditLogModel,        { foreignKey: 'user_id', as: 'auditLogs' });
+AuditLogModel.belongsTo(User,       { foreignKey: 'user_id', as: 'user' });
+
 // ─── Export ───────────────────────────────────────────────────────
 module.exports = {
   sequelize,

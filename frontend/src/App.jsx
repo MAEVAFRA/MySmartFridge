@@ -10,6 +10,7 @@ import Products from './pages/Products'
 import Locations from './pages/Locations'
 import ShoppingLists from './pages/ShoppingLists'
 import Recipes from './pages/Recipes'
+import History from './pages/History'
 import Stats from './pages/Stats'
 import Expenses from './pages/Expenses'
 import Expiring from './pages/Expiring'
@@ -114,6 +115,7 @@ function App() {
         <Route path="locations" element={<Locations />} />
         <Route path="shopping" element={<ShoppingLists />} />
         <Route path="recipes" element={<Recipes />} />
+        <Route path="history" element={<History />} />
         <Route path="stats" element={<Stats />} />
         <Route path="expenses" element={<Expenses />} />
         <Route path="expiring" element={<Expiring />} />
